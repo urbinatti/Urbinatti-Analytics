@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Urbinatti Analytics - Dashboard de Control Operativo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+
+    <!-- Configuración PWA -->
+<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Urbinatti Analytics">
+<link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3412/3412862.png">
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen">
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        
+        <!-- Header del Sistema MIS Avanzado -->
+        <header class="mb-8 border-b border-slate-700 pb-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-black uppercase tracking-wider text-emerald-400">URBINATTI PERFORMANCE ANALYTICS</h1>
+                <p class="text-xs font-mono text-slate-400">SISTEMA INTEGRADO DE AUDITORÍA FÍSICA Y LOGÍSTICA DE NUTRICIÓN | RESPONSABLE: JOAQUÍN URBINATTI</p>
+            </div>
+            <div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 text-right">
+                <span class="text-xs text-slate-400 block font-mono">ESTADO DE USUARIO</span>
+                <span class="text-sm font-bold text-slate-200">Masa: {{ peso }} kg | Frecuencia: {{ frecuencia }} p/semana</span>
+            </div>
+        </header>
+
+        <!-- Bloque Analítico de Indicadores Clave (Métricas de Control de Déficit) -->
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+                <h3 class="text-xs font-bold uppercase text-slate-400 mb-1">Calorías Objetivo Diarias</h3>
+                <p class="text-2xl font-black text-slate-200">{{ limite_calorias }} kcal</p>
+                <span class="text-[10px] text-emerald-400 block font-mono mt-1">Déficit de -600 kcal integrado</span>
+            </div>
+            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+                <h3 class="text-xs font-bold uppercase text-slate-400 mb-1">Consumo Registrado Hoy</h3>
+                <p class="text-2xl font-black text-amber-500">{{ metricas.calorias_hoy }} kcal</p>
+            </div>
+            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+                <h3 class="text-xs font-bold uppercase text-slate-400 mb-1">Margen Disponible</h3>
+                <p class="text-2xl font-black {% if balance >= 0 %}text-emerald-400{% else %}text-red-500{% endif %}">{{ balance }} kcal</p>
+            </div>
+            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+                <h3 class="text-xs font-bold uppercase text-slate-400 mb-1">Auditoría de Control</h3>
+                <p class="text-lg font-black uppercase mt-1 px-2 py-1 rounded text-center {% if estado_deficit == 'DENTRO DEL RANGO' %}bg-emerald-900/40 text-emerald-400 border border-emerald-700{% else %}bg-red-900/40 text-red-400 border border-red-700{% endif %}">
+                    {{ estado_deficit }}
+                </p>
+            </div>
+        </section>
+
+        <!-- Formularios de Control Transaccional (Entradas) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            
+            <!-- Entrada 1: Control de Fuerza en Gimnasio -->
+            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                <h2 class="text-base font-bold uppercase text-slate-200 mb-4 border-b border-slate-700 pb-2">Log de Entrenamiento Operativo</h2>
+                <form action="/registrar_entrenamiento" method="POST" class="space-y-3">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Grupo Muscular</label>
+                            <input type="text" name="grupo" required placeholder="Ej: Espalda / Biceps" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Ejercicio Clave</label>
+                            <input type="text" name="ejercicio" required placeholder="Ej: Agarre Polea Alta" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Series</label>
+                            <input type="number" name="series" required min="1" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Reps</label>
+                            <input type="number" name="reps" required min="1" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Carga (Kg)</label>
+                            <input type="number" step="0.1" name="carga" required min="0" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-slate-900 font-black py-2 rounded text-xs uppercase tracking-wider transition">Inyectar Registro SQL</button>
+                </form>
+            </div>
+
+            <!-- Entrada 2: Log Nutricional Inteligente -->
+            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                <h2 class="text-base font-bold uppercase text-slate-200 mb-4 border-b border-slate-700 pb-2">Auditoría Nutricional Avanzada</h2>
+                <form action="/registrar_nutricion" method="POST" class="space-y-3">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Alimento / Ingesta</label>
+                            <input type="text" name="alimento" required placeholder="Ej: Milanesa de Pollo" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Porción Física (Gramos)</label>
+                            <input type="number" name="gramos" required min="1" placeholder="Cantidad bruta" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4 bg-slate-900/60 p-2 rounded border border-slate-700/50">
+                        <div class="col-span-3 text-[9px] font-mono text-slate-500 uppercase">Valores base cada 100g (Se ignoran si detecta la palabra "Milanesa"):</div>
+                        <div>
+                            <label class="block text-[9px] font-mono text-slate-400 uppercase">Prot (g)</label>
+                            <input type="number" step="0.1" name="prot" value="0" class="w-full bg-slate-900 border border-slate-700 rounded p-1 text-xs text-slate-200">
+                        </div>
+                        <div>
+                            <label class="block text-[9px] font-mono text-slate-400 uppercase">Carb (g)</label>
+                            <input type="number" step="0.1" name="carb" value="0" class="w-full bg-slate-900 border border-slate-700 rounded p-1 text-xs text-slate-200">
+                        </div>
+                        <div>
+                            <label class="block text-[9px] font-mono text-slate-400 uppercase">Grasa (g)</label>
+                            <input type="number" step="0.1" name="grasa" value="0" class="w-full bg-slate-900 border border-slate-700 rounded p-1 text-xs text-slate-200">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-black py-2 rounded text-xs uppercase tracking-wider transition">Procesar Transacción Alimento</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tablas de Datos Relacionales (Vistas SQL en tiempo real) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                <h3 class="text-sm font-bold uppercase text-slate-400 mb-3">Historial de Cargas Físicas (Últimos 5 SQL entries)</h3>
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400 uppercase">
+                            <th class="py-2">Músculo</th>
+                            <th class="py-2">Ejercicio</th>
+                            <th class="py-2 text-center">Series x Reps</th>
+                            <th class="py-2 text-right">Carga</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50">
+                        {% for item in metricas.lista_entrenamientos %}
+                        <tr class="text-slate-300">
+                            <td class="py-2 font-bold text-slate-200">{{ item[0] }}</td>
+                            <td class="py-2">{{ item[1] }}</td>
+                            <td class="py-2 text-center">{{ item[2] }} x {{ item[3] }}</td>
+                            <td class="py-2 text-right font-mono text-emerald-400">{{ item[4] }} Kg</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                <h3 class="text-sm font-bold uppercase text-slate-400 mb-3">Auditoría Nutricional (Últimos 5 SQL entries)</h3>
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400 uppercase">
+                            <th class="py-2">Alimento</th>
+                            <th class="py-2 text-center">P / C / G</th>
+                            <th class="py-2 text-right">Aporte Total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50">
+                        {% for item in metricas.lista_nutricion %}
+                        <tr class="text-slate-300">
+                            <td class="py-2 font-bold text-slate-200">{{ item[0] }}</td>
+                            <td class="py-2 text-center font-mono text-slate-400">{{ item[2]|round(1) }}g / {{ item[3]|round(1) }}g / {{ item[4]|round(1) }}g</td>
+                            <td class="py-2 text-right font-mono text-amber-400">{{ item[1]|round(1) }} kcal</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+    <!-- VENTANA FLOTANTE DE CHAT CON IA -->
+<div class="fixed bottom-5 right-5 z-50 flex flex-col items-end">
+    <!-- Botón para abrir/cerrar chat -->
+    <button id="chat-toggle" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold p-4 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+        </svg>
+        <span>Asistente IA</span>
+    </button>
+
+    <!-- Caja de chat ocultable -->
+    <div id="chat-box" class="hidden w-80 md:w-96 h-96 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden mt-3 transition-all">
+        <!-- Encabezado -->
+        <div class="bg-slate-800 border-b border-slate-700 p-3 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <h3 class="font-bold text-emerald-400 text-sm">URBINATTI AI ASSISTANT</h3>
+            </div>
+        </div>
+        <!-- Contenedor de mensajes -->
+        <div id="chat-messages" class="flex-1 p-3 overflow-y-auto space-y-2 text-xs text-slate-300">
+            <div class="bg-slate-800 p-2 rounded-lg max-w-[85%] border border-slate-700">
+                ¡Hola Joaquín! Soy tu motor de auditoría inteligente. ¿Querés analizar las métricas calóricas de hoy o revisar un grupo muscular específico?
+            </div>
+        </div>
+        <!-- Input e ingreso de texto -->
+        <div class="p-2 border-t border-slate-700 bg-slate-950 flex gap-1">
+            <input type="text" id="chat-input" placeholder="Preguntale a la IA..." class="flex-1 bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+            <button id="chat-send" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 px-3 py-1.5 rounded font-bold text-xs transition-all">Enviar</button>
+        </div>
+    </div>
+</div>
+<!-- LÓGICA JAVASCRIPT DEL CHAT ASINCRÓNICO -->
+<script>
+    const chatToggle = document.getElementById('chat-toggle');
+    const chatBox = document.getElementById('chat-box');
+    const chatInput = document.getElementById('chat-input');
+    const chatSend = document.getElementById('chat-send');
+    const chatMessages = document.getElementById('chat-messages');
+
+    // 1. Mostrar / Ocultar la caja de chat
+    chatToggle.addEventListener('click', () => {
+        chatBox.classList.toggle('hidden');
+    });
+
+    // Función para agregar mensajes a la pantalla
+    function appendMessage(text, isUser = false) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = isUser 
+            ? 'bg-emerald-500 text-slate-950 p-2 rounded-lg max-w-[85%] ml-auto font-medium' 
+            : 'bg-slate-800 p-2 rounded-lg max-w-[85%] border border-slate-700';
+        msgDiv.innerText = text;
+        chatMessages.appendChild(msgDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll abajo
+    }
+
+    // 2. Capturar y enviar el mensaje al backend via FETCH
+    async function sendMessage() {
+        const message = chatInput.value.trim();
+        if (!message) return;
+
+        // Mostrar mensaje del usuario en pantalla
+        appendMessage(message, true);
+        chatInput.value = '';
+
+        // Mostrar indicador de "Pensando..." provisional
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'text-slate-500 italic animate-pulse';
+        loadingDiv.innerText = 'IA analizando...';
+        chatMessages.appendChild(loadingDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        try {
+            // Petición asincrónica HTTP POST a la ruta /chat de Flask
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message })
+            });
+            
+            const data = await response.json();
+            loadingDiv.remove(); // Quitar el "Pensando..."
+
+            if (data.response) {
+                appendMessage(data.response);
+            } else {
+                appendMessage("Error operativo en el backend.");
+            }
+        } catch (error) {
+            loadingDiv.remove();
+            appendMessage("No se pudo conectar con el servidor.");
+        }
+    }
+
+    // Eventos de envío (Botón y Tecla Enter)
+    chatSend.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+
+// Registrar el Service Worker para activar la PWA
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register("/static/sw.js")
+            .then(reg => console.log("Service Worker registrado con éxito", reg))
+            .catch(err => console.error("Error al registrar el Service Worker", err));
+    });
+}
+</script>
+</body>
+</html>

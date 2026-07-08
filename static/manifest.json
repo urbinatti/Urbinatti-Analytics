@@ -1,0 +1,18 @@
+{
+  "name": "Urbinatti Performance Analytics",
+  "short_name": "Urbinatti Analytics",
+  "description": "Sistema integrado de auditoría física y logística de nutrición",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3412/3412862.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
