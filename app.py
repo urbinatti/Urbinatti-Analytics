@@ -161,66 +161,60 @@ def ingreso():
     user_api_key = session.get('usuario_api_key') or os.environ.get("GEMINI_API_KEY")
     
     if not user_api_key:
-        return "Error: No hay API Key activa.", 400
+        return "Error: No hay API Key activa configurada para este usuario.", 400
 
     try:
+        # Obtenemos los datos dinámicos del cliente actual
         user_data = obtener_datos_atleta_local(usuario_id)
-        peso_actual = user_data.get('peso_kg', 70.0)
+        peso_cliente = user_data.get('peso_kg', 70.0)
+        entrenamientos_cliente = user_data.get('entrenamientos_semanales', 3)
+        objetivo_cliente = user_data.get('objetivo', 'mantenimiento')
         
-        prompt_sistema = f"""Sos un asistente experto en nutrición y rendimiento deportivo, inteligente, directo y conversacional. El usuario pesa {peso_actual}kg.
-Tu rol es mantener una charla fluida e informativa. Si el mensaje del usuario incluye alimentos consumidos, estima sus calorías y macronutrientes de forma realista.
+        # LA CLAVE PARA PYTHONANYWHERE: forzamos el uso de REST en vez de gRPC
+        genai.configure(api_key=user_api_key, transport='rest')
+        
+        # Prompt dinámico y genérico
+        instruccion_sistema = f"""Eres un asistente de nutrición y rendimiento deportivo objetivo y directo. 
+El usuario actual pesa {peso_cliente}kg, entrena {entrenamientos_cliente} veces por semana y su objetivo es {objetivo_cliente}. 
+Tu tarea es mantener una charla fluida y útil. Si el usuario menciona que consumió alimentos, estima sus macronutrientes y calorías con precisión. Si es una pregunta o charla general, responde de forma natural y deja la lista de alimentos vacía."""
 
-Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
-{{
-  "alimentos": [
-    {{
-      "descripcion": "nombre claro del alimento y cantidad",
-      "peso": 0.0,
-      "calorias": 0.0,
-      "proteinas": 0.0,
-      "carbohidratos": 0.0,
-      "grasas": 0.0
-    }}
-  ],
-  "respuesta_chat": "Tu respuesta conversacional completa y natural hacia el usuario."
-}}
-Si es solo charla o preguntas generales, deja "alimentos": [] y responde de forma natural en "respuesta_chat"."""
+        # Estructura inquebrantable
+        class Alimento(typing.TypedDict):
+            descripcion: str
+            peso: float
+            calorias: float
+            proteinas: float
+            carbohidratos: float
+            grasas: float
 
-        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={user_api_key}"
-        headers = {'Content-Type': 'application/json'}
-        payload = {"contents": [{"parts": [{"text": prompt_sistema}, {"text": f"Mensaje: {descripcion}"}]}]}
-        
-        response = requests.post(url, headers=headers, json=payload, timeout=15)
-        
-        if response.status_code != 200:
-            session['respuesta_ia_chat'] = f"Error de comunicación con la API ({response.status_code})."
-            return redirect(url_for('index'))
-            
-        res_data = response.json()
-        
-        if 'candidates' not in res_data or not res_data['candidates']:
-            session['respuesta_ia_chat'] = "No obtuve respuesta válida de la IA."
-            return redirect(url_for('index'))
+        class RespuestaIA(typing.TypedDict):
+            alimentos: list[Alimento]
+            respuesta_chat: str
 
-        texto_crudo = res_data['candidates'][0]['content']['parts'][0]['text']
-        texto_limpio = texto_crudo.replace('```json', '').replace('```', '').strip()
+        model = genai.GenerativeModel(
+            model_name="gemini-2.0-flash",
+            system_instruction=instruccion_sistema
+        )
         
-        try:
-            start_idx = texto_limpio.find('{')
-            end_idx = texto_limpio.rfind('}')
-            if start_idx != -1 and end_idx != -1:
-                resultado_ia = json.loads(texto_limpio[start_idx:end_idx+1])
-            else:
-                resultado_ia = {"alimentos": [], "respuesta_chat": texto_crudo}
-        except Exception:
-            resultado_ia = {"alimentos": [], "respuesta_chat": texto_crudo}
+        # SEGUNDA CLAVE: Timeout de 15 segundos para que la web nunca se congele
+        response = model.generate_content(
+            descripcion,
+            generation_config=genai.GenerationConfig(
+                response_mime_type="application/json",
+                response_schema=RespuestaIA,
+            ),
+            request_options={"timeout": 15.0}
+        )
         
+        resultado_ia = json.loads(response.text)
+        
+        # Inserción en BD
         alimentos = resultado_ia.get('alimentos', [])
         if alimentos and isinstance(alimentos, list):
             conn = database.obtener_conexion()
             cursor = conn.cursor()
             for item in alimentos:
-                desc = str(item.get('descripcion') or item.get('alimento') or 'Alimento')
+                desc = str(item.get('descripcion') or 'Alimento')
                 p_gr = float(item.get('peso') or 0.0)
                 kcal = float(item.get('calorias') or 0.0)
                 prot = float(item.get('proteinas') or 0.0)
@@ -235,12 +229,12 @@ Si es solo charla o preguntas generales, deja "alimentos": [] y responde de form
             cursor.close()
             conn.close()
 
-        session['respuesta_ia_chat'] = resultado_ia.get('respuesta_chat', 'Procesado con éxito.')
+        session['respuesta_ia_chat'] = resultado_ia.get('respuesta_chat', 'Proceso completado.')
         return redirect(url_for('index'))
         
     except Exception as e:
-        print(f"[ERROR CRITICO INGESTA]: {e}")
-        session['respuesta_ia_chat'] = f"Error interno al procesar el mensaje."
+        print(f"[ERROR CRITICO INGESTA]: {str(e)}")
+        session['respuesta_ia_chat'] = f"Error en el servidor al procesar el mensaje con la IA. Detalle técnico: {str(e)}"
         return redirect(url_for('index'))
 
 @app.route('/actualizar_objetivos', methods=['POST'])
