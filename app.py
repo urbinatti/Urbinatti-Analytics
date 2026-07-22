@@ -73,7 +73,6 @@ def index():
     cursor.close()
     conn.close()
     
-    # Manejo ultra seguro de nulos para evitar errores de cantidades
     calorias_totales = sum(float(r.get('calorias') or 0) for r in registros)
     proteina_total = sum(float(r.get('proteinas') or 0) for r in registros)
     carbs_totales = sum(float(r.get('carbohidratos') or 0) for r in registros)
@@ -168,41 +167,39 @@ def ingreso():
         user_data = obtener_datos_atleta_local(usuario_id)
         peso_actual = user_data.get('peso_kg', 70.0)
         
-        # PROMPT BLINDADO Y ROBUSTO
-        prompt_sistema = f"""Actúas como un software estricto de nutrición y rendimiento deportivo para un atleta que pesa {peso_actual}kg.
-Tu única tarea es analizar la frase del usuario y clasificarla de forma precisa en uno de estos tres tipos:
+        # PROMPT NATURAL Y CONVERSACIONAL (Estilo Gemini)
+        prompt_sistema = f"""Sos un asistente de nutrición y rendimiento deportivo inteligente, directo y razonable (como un entrenador personal sincero). El usuario pesa {peso_actual}kg.
+Te comunicas de forma natural y conversacional. 
 
-REGLAS DE CLASIFICACIÓN:
-1. "comida": Si el usuario describe alimentos o ingestas consumidas. Debes desglosar CADA ALIMENTO en la lista "alimentos" con sus calorías y macronutrientes estimados de forma coherente. Si menciona huesos o partes descartables, réstalos del peso real de la comida.
-2. "borrar": Si el usuario pide explícitamente eliminar o borrar un registro previo (ej: "borra el pollo", "elimina la milanesa"). En este caso, pon el patrón o nombre clave a buscar en "patron_borrar".
-3. "chat": Para cualquier otra cosa (saludos como "hola", charlas, preguntas generales, estados de ánimo o frases ambiguas donde no describa una comida clara).
+El usuario te va a escribir qué comió, comentarios de su día, o te hará preguntas. 
+Debes responderle en formato JSON exacto estructurado de la siguiente manera para que el sistema pueda leerlo, pero manteniendo una charla fluida en el campo "respuesta_chat":
 
-FORMATO DE SALIDA OBLIGATORIO:
-Devuelve EXCLUSIVAMENTE un objeto JSON válido, sin texto extra antes ni después, respetando exactamente esta estructura:
+Devuelve EXCLUSIVAMENTE este JSON (sin texto extra fuera de él):
 {{
-  "tipo": "comida" | "borrar" | "chat",
-  "patron_borrar": "texto o nombre a borrar o null",
+  "tipo": "comida" o "chat",
   "alimentos": [
     {{
-      "alimento": "Nombre limpio del alimento",
+      "alimento": "nombre limpio del alimento o plato",
       "calorias": numero_entero,
       "proteinas": numero_entero,
       "carbohidratos": numero_entero,
       "grasas": numero_entero
     }}
   ],
-  "respuesta_chat": "Tu respuesta como asistente de nutrición si es chat, o null si es comida/borrar"
-}}"""
+  "respuesta_chat": "Tu respuesta conversacional, amigable, directa y útil hacia el usuario (por ejemplo, comentándole sobre su comida, dándole feedback o respondiendo a su charla)."
+}}
+
+Si el usuario registra una comida (como el yogur, leche, miel y galletas), desglosala en la lista "alimentos" con sus macros estimados y en "respuesta_chat" dale una devolución piola de su ingesta. Si es solo charla o saludos, deja "alimentos": [] y responde de forma natural en "respuesta_chat"."""
 
         url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={user_api_key}"
         headers = {'Content-Type': 'application/json'}
-        payload = {"contents": [{"parts": [{"text": prompt_sistema}, {"text": f"Mensaje: {descripcion}"}]}]}
+        payload = {"contents": [{"parts": [{"text": prompt_sistema}, {"text": f"Mensaje del usuario: {descripcion}"}]}]}
         
         response = requests.post(url, headers=headers, json=payload)
         res_data = response.json()
         
         if 'candidates' not in res_data or not res_data['candidates']:
-            session['respuesta_ia_chat'] = "⚠️ La IA no devolvió una respuesta válida. Intentá de nuevo."
+            session['respuesta_ia_chat'] = f"Entendido, lo tuve en cuenta, pero hubo un mini detalle técnico con la API. ¡Sigamos!"
             return redirect(url_for('index'))
 
         texto_crudo = res_data['candidates'][0]['content']['parts'][0]['text']
@@ -211,18 +208,18 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido, sin texto extra antes ni despué
         try:
             resultado_ia = json.loads(texto_limpio)
         except json.JSONDecodeError:
-            # Blindaje extra por si la IA responde con texto plano en vez de JSON puro
-            resultado_ia = {"tipo": "chat", "patron_borrar": None, "alimentos": [], "respuesta_chat": texto_crudo}
+            # Si la IA se sale del JSON y te habla en texto plano, lo usamos como respuesta de chat directa sin rompernos
+            session['respuesta_ia_chat'] = texto_crudo
+            return redirect(url_for('index'))
         
-        tipo_intencion = resultado_ia.get('tipo')
-        
-        # 1. CASO REGISTRO DE COMIDAS
-        if tipo_intencion == 'comida' and resultado_ia.get('alimentos'):
+        # Si trajo alimentos, los guardamos automáticamente en la base de datos
+        alimentos = resultado_ia.get('alimentos', [])
+        if alimentos and isinstance(alimentos, list):
             conn = database.obtener_conexion()
             cursor = conn.cursor()
             total_kcal = 0
             
-            for item in resultado_ia.get('alimentos', []):
+            for item in alimentos:
                 nombre = str(item.get('alimento', 'Alimento'))
                 kcal = float(item.get('calorias') or 0)
                 prot = float(item.get('proteinas') or 0)
@@ -238,33 +235,15 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido, sin texto extra antes ni despué
             conn.commit()
             cursor.close()
             conn.close()
-            session['respuesta_ia_chat'] = f"✅ Registrados {len(resultado_ia['alimentos'])} ítems desglosados ({int(total_kcal)} kcal)."
 
-        # 2. CASO BORRADO POR IA
-        elif tipo_intencion == 'borrar' and resultado_ia.get('patron_borrar'):
-            patron = f"%{resultado_ia.get('patron_borrar')}%"
-            conn = database.obtener_conexion()
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM registros_comidas WHERE usuario_id = ? AND descripcion LIKE ?", (usuario_id, patron))
-            filas_borradas = cursor.rowcount
-            conn.commit()
-            cursor.close()
-            conn.close()
-            
-            if filas_borradas > 0:
-                session['respuesta_ia_chat'] = f"🗑️ Se eliminaron {filas_borradas} registro(s) que coincidían con '{resultado_ia.get('patron_borrar')}'."
-            else:
-                session['respuesta_ia_chat'] = f"⚠️ No se encontró ningún registro que coincida con '{resultado_ia.get('patron_borrar')}'."
-
-        # 3. CASO CHAT GENERAL O SALUDOS
-        else:
-            session['respuesta_ia_chat'] = resultado_ia.get('respuesta_chat', 'Entendido, ¿qué comiste o qué objetivo tenés presente hoy?')
+        # Mostramos la respuesta conversacional que dio la IA
+        session['respuesta_ia_chat'] = resultado_ia.get('respuesta_chat', '¡Anotado y procesado!')
 
         return redirect(url_for('index'))
         
     except Exception as e:
-        print(f"[ERROR INGESTA BLINDADA]: {e}")
-        session['respuesta_ia_chat'] = "⚠️ Ocurrió un error al procesar tu mensaje con la IA."
+        print(f"[ERROR INGESTA NATURAL]: {e}")
+        session['respuesta_ia_chat'] = f"Te leí perfectamente, pero tiró un pequeño error de procesamiento. Probá mandar el mensaje de nuevo."
         return redirect(url_for('index'))
 
 @app.route('/actualizar_objetivos', methods=['POST'])
