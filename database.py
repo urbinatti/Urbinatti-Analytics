@@ -225,3 +225,8 @@ def obtener_datos_atleta(usuario_id):
     finally:
         cursor.close()
         conn.close()
+        
+def init_db():
+    # MySQL no requiere inicialización manual de tablas por código si ya están creadas en Workbench,
+    # pero se deja esta función vacía para evitar el error de importación desde app.py.
+    pass
