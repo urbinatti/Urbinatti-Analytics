@@ -20,7 +20,7 @@ def obtener_datos_atleta_local(usuario_id):
     conn = database.obtener_conexion() 
     if not conn: 
         return {'peso': 70.0, 'entrenamientos': 5, 'objetivo': 'definicion', 'deficit': -500}
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     try:
         cursor.execute("SELECT peso_kg, entrenamientos_semanales, deficit_objetivo_kcal FROM usuarios WHERE id = %s", (usuario_id,))
         res = cursor.fetchone()
