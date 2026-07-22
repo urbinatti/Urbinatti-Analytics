@@ -194,7 +194,7 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido, sin texto extra antes ni despué
   "respuesta_chat": "Tu respuesta como asistente de nutrición si es chat, o null si es comida/borrar"
 }}"""
 
-        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key={user_api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={user_api_key}"
         headers = {'Content-Type': 'application/json'}
         payload = {"contents": [{"parts": [{"text": prompt_sistema}, {"text": f"Mensaje: {descripcion}"}]}]}
         
