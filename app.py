@@ -65,6 +65,10 @@ def index():
         return "Error: Usuario no encontrado.", 404
         
     user_data = dict(row_user)
+    
+    # VERIFICACIÓN DE API KEY PARA EL FRONTEND
+    api_key_db = user_data.get('gemini_api_key')
+    tiene_api_key = bool(api_key_db and str(api_key_db).strip())
         
     cursor.execute("""
         SELECT * FROM registros_comidas 
@@ -107,7 +111,8 @@ def index():
         meta_calorias=meta_calorias,
         meta_proteina=meta_proteina,
         margen_calorias=margen_calorias,
-        margen_proteina=margen_proteina
+        margen_proteina=margen_proteina,
+        tiene_api_key=tiene_api_key  # Le pasamos este dato al HTML
     )
 
 @app.route('/login', methods=['GET', 'POST'])
