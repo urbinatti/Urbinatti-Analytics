@@ -7,34 +7,6 @@ import mysql.connector
 from mysql.connector import Error
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
-import os
-import sqlite3
-
-# Ruta absoluta basada en la ubicación real del archivo en el servidor
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-DB_PATH = os.path.join(BASE_DIR, 'analytics_urbinati.db')
-
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-def init_db():
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            peso REAL,
-            entrenamientos INTEGER,
-            objetivo TEXT,
-            deficit INTEGER
-        )
-    ''')
-    conn.commit()
-    conn.close()
 
 # Configuración de conexión local basada en tu instalación de MySQL 8.0.46
 def obtener_conexion():
@@ -43,7 +15,7 @@ def obtener_conexion():
             host='localhost',
             port=3306,
             user='root',
-            password='Joaquin1',  # <--- COLOCÁ ACÁ LA CONTRASEÑA DE TU WORKBENCH
+            password='Joaquin1',  # Contraseña de tu Workbench
             database='fit_tracker_db'
         )
         return conexion
@@ -52,29 +24,35 @@ def obtener_conexion():
         return None
 
 def registrar_nuevo_usuario(nombre, password, peso, entrenamientos, objetivo, deficit):
-    conn = get_db()
+    conn = obtener_conexion()
+    if not conn:
+        return {"success": False, "message": "Error de conexión a la base de datos."}
+    
     cursor = conn.cursor()
+    password_encriptada = generate_password_hash(password)
+    token_interno = f"fit_live_{secrets.token_hex(16)}"
+    
     try:
-        cursor.execute('''
-            INSERT INTO users (username, password, peso, entrenamientos, objetivo, deficit)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (nombre, password, peso, entrenamientos, objetivo, deficit))
+        cursor.execute("""
+            INSERT INTO usuarios (nombre, password_hash, peso, entrenamientos, objetivo, deficit, gemini_api_key)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (nombre, password_encriptada, peso, entrenamientos, objetivo, deficit, token_interno))
         conn.commit()
         return {"success": True, "message": "Usuario registrado con éxito"}
-    except Exception as e:
+    except Error as e:
         conn.rollback()
-        return {"success": False, "message": str(e)}
+        return {"success": False, "message": f"El nombre de usuario ya existe o hubo un error: {str(e)}"}
     finally:
+        cursor.close()
         conn.close()
 
 def verificar_credenciales(nombre, password):
-    """Verifica el login y extrae el ID, nombre y la clave de Gemini real guardada."""
+    """Verifica el login y extrae el ID, nombre y la clave de Gemini."""
     conn = obtener_conexion()
     if not conn:
         return None
     cursor = conn.cursor(dictionary=True)
     try:
-        # Seleccionamos también 'gemini_api_key' para subirla a la sesión de Flask
         cursor.execute("SELECT id, nombre, password_hash, gemini_api_key FROM usuarios WHERE nombre = %s", (nombre,))
         usuario = cursor.fetchone()
         if usuario and check_password_hash(usuario['password_hash'], password):
@@ -86,9 +64,9 @@ def verificar_credenciales(nombre, password):
     finally:
         cursor.close()
         conn.close()
-        
+
 def actualizar_gemini_key(usuario_id, api_key_real):
-    """Función nueva: Guarda la clave real de Google (AIza...) provista por el alumno."""
+    """Almacena la clave real provista por el usuario en su fila correspondiente."""
     conn = obtener_conexion()
     if not conn:
         return False
@@ -102,7 +80,7 @@ def actualizar_gemini_key(usuario_id, api_key_real):
         conn.commit()
         return True
     except Error as e:
-        print(f"[ERROR AL GUARDAR GEMINI KEY] {e}")
+        print(f"[MySQL ERROR ACTUALIZAR KEY] {e}")
         return False
     finally:
         cursor.close()
@@ -181,7 +159,6 @@ def obtener_metricas_globales(usuario_id):
     ultimos_entrenamientos = []
     
     try:
-        # 1. Sumatoria de macros del día por usuario
         cursor.execute("""
             SELECT 
                 SUM(calorias) as calorias_totales, 
@@ -198,7 +175,6 @@ def obtener_metricas_globales(usuario_id):
             carb_hoy = fila['carbohidratos_totales'] if fila['carbohidratos_totales'] is not None else 0.0
             gras_hoy = fila['grasas_totales'] if fila['grasas_totales'] is not None else 0.0
             
-        # 2. Últimos 5 de alimentación por usuario
         cursor.execute("""
             SELECT descripcion_alimento as alimento, proteinas_g as prot, carbohidratos_g as carb, grasas_g as grasa, calorias 
             FROM registro_comidas 
@@ -207,7 +183,6 @@ def obtener_metricas_globales(usuario_id):
         """, (usuario_id,))
         ultimos_alimentos = cursor.fetchall()
 
-        # 3. Últimos 5 de entrenamientos por usuario
         cursor.execute("""
             SELECT tipo_entrenamiento as grupo, detalles_sesion as ejercicio 
             FROM registro_entrenamientos 
@@ -230,31 +205,10 @@ def obtener_metricas_globales(usuario_id):
         "ultimos_alimentos": ultimos_alimentos,
         "ultimos_entrenamientos": ultimos_entrenamientos
     }
-    
-def actualizar_gemini_key(usuario_id, api_key_real):
-    """Almacena la clave real provista por el alumno en su fila correspondiente."""
-    conn = obtener_conexion() # Usa tu función nativa de conexión a MySQL
-    if not conn:
-        return False
-    cursor = conn.cursor()
-    try:
-        cursor.execute("""
-            UPDATE usuarios 
-            SET gemini_api_key = %s 
-            WHERE id = %s
-        """, (api_key_real, usuario_id))
-        conn.commit()
-        return True
-    except Exception as e:
-        print(f"[MySQL ERROR ACTUALIZAR KEY] {e}")
-        return False
-    finally:
-        cursor.close()
-        conn.close()
-        
+
 def obtener_datos_atleta(usuario_id):
     """Recupera el perfil calórico y de entrenamiento de un usuario."""
-    conn = obtener_conexion() # Usa tu función nativa para conectar a MySQL
+    conn = obtener_conexion()
     if not conn: 
         return {'peso': 70.0, 'entrenamientos': 5, 'objetivo': 'definicion', 'deficit': -500}
         
@@ -262,11 +216,8 @@ def obtener_datos_atleta(usuario_id):
     try:
         cursor.execute("SELECT peso, entrenamientos, objetivo, deficit FROM usuarios WHERE id = %s", (usuario_id,))
         resultado = cursor.fetchone()
-        
-        # Si por alguna razón da vacío, devolvemos un diccionario base por defecto
         if not resultado:
             return {'peso': 70.0, 'entrenamientos': 5, 'objetivo': 'definicion', 'deficit': -500}
-            
         return resultado
     except Exception as e:
         print(f"[MySQL ERROR OBTENER ATLETA]: {e}")
