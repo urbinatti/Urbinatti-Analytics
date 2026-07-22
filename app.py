@@ -17,7 +17,7 @@ def obtener_datos_atleta_local(usuario_id):
     conn = database.obtener_conexion() 
     if not conn: 
         return {'peso': 70.0, 'entrenamientos': 5, 'objetivo': 'definicion', 'deficit': -500}
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     try:
         cursor.execute("SELECT peso_kg, entrenamientos_semanales, deficit_objetivo_kcal FROM usuarios WHERE id = %s", (usuario_id,))
         res = cursor.fetchone()
@@ -58,7 +58,7 @@ def obtener_totales_hoy_local(usuario_id):
     conn = database.obtener_conexion()
     if not conn: 
         return {'calorias': 0, 'proteinas': 0, 'carbohidratos': 0, 'grasas': 0}
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     try:
         cursor.execute("""
             SELECT 
@@ -80,7 +80,7 @@ def obtener_totales_hoy_local(usuario_id):
 def obtener_registros_hoy_local(usuario_id):
     conn = database.obtener_conexion()
     if not conn: return []
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     try:
         cursor.execute("""
             SELECT descripcion, calorias, proteinas, carbohidratos, grasas, DATE_FORMAT(timestamp, '%H:%i') as timestamp 
@@ -109,7 +109,7 @@ def index():
     
     # 1. Consultar perfil de usuario directo de la DB
     conn = database.obtener_conexion()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     cursor.execute("SELECT * FROM usuarios WHERE id = %s", (usuario_id,))
     user_data = cursor.fetchone()
     
