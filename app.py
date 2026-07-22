@@ -4,6 +4,8 @@ import json
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import database
 import requests
+import google.generativeai as genai
+import typing_extensions as typing
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(24))
