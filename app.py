@@ -167,22 +167,22 @@ def ingreso():
         user_data = obtener_datos_atleta_local(usuario_id)
         peso_actual = user_data.get('peso_kg', 70.0)
         
-        prompt_sistema = f"""Sos un asistente de nutrición y rendimiento deportivo inteligente, directo y sincero (como un preparador físico exigente pero buena onda). El usuario pesa {peso_actual}kg.
-Analiza el mensaje del usuario. 
-Debes devolver EXCLUSIVAMENTE un JSON válido (sin bloques de código markdown si no querés, o dentro de ```json ... ```) con la siguiente estructura exacta:
+        prompt_sistema = f"""Sos un software experto de nutrición y rendimiento deportivo para un atleta que pesa {peso_actual}kg.
+Tu tarea es analizar el mensaje del usuario. Si describe alimentos consumidos, debes desglosarlos detalladamente.
+Devuelve EXCLUSIVAMENTE un JSON válido con la siguiente estructura:
 {{
   "alimentos": [
     {{
-      "alimento": "nombre limpio del alimento o plato con su cantidad",
+      "alimento": "nombre limpio del alimento y cantidad",
       "calorias": numero_entero,
       "proteinas": numero_entero,
       "carbohidratos": numero_entero,
       "grasas": numero_entero
     }}
   ],
-  "respuesta_chat": "Tu respuesta conversacional, opinando de forma directa y piola sobre lo que comió el usuario o respondiendo a su charla."
+  "respuesta_chat": "Tu respuesta directa, sincera y conversacional sobre la comida o charla del usuario."
 }}
-Si el mensaje no es comida (ej: saludos o charlas), deja "alimentos": [] y responde de forma natural en "respuesta_chat"."""
+Si es solo un saludo o charla general, deja "alimentos": [] y responde de forma natural en "respuesta_chat"."""
 
         url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={user_api_key}"
         headers = {'Content-Type': 'application/json'}
@@ -192,29 +192,23 @@ Si el mensaje no es comida (ej: saludos o charlas), deja "alimentos": [] y respo
         res_data = response.json()
         
         if 'candidates' not in res_data or not res_data['candidates']:
-            session['respuesta_ia_chat'] = f"Te leí: '{descripcion}'. ¡Anotado en la mente!"
+            session['respuesta_ia_chat'] = "No pude procesar la respuesta de la IA correctamente."
             return redirect(url_for('index'))
 
         texto_crudo = res_data['candidates'][0]['content']['parts'][0]['text']
-        
-        # Limpieza ultra flexible de JSON para que nunca explote
         texto_limpio = texto_crudo.replace('```json', '').replace('```', '').strip()
         
         try:
-            # Intentamos parsear el JSON limpio
             start_idx = texto_limpio.find('{')
             end_idx = texto_limpio.rfind('}')
             if start_idx != -1 and end_idx != -1:
-                json_str = texto_limpio[start_idx:end_idx+1]
-                resultado_ia = json.loads(json_str)
+                resultado_ia = json.loads(texto_limpio[start_idx:end_idx+1])
             else:
-                raise ValueError("No se encontró estructura JSON")
+                resultado_ia = {"alimentos": [], "respuesta_chat": texto_crudo}
         except Exception:
-            # Si la IA falló en dar un JSON puro y duro, guardamos el texto plano como respuesta conversacional
-            session['respuesta_ia_chat'] = texto_crudo
-            return redirect(url_for('index'))
+            resultado_ia = {"alimentos": [], "respuesta_chat": texto_crudo}
         
-        # Procesamos los alimentos si vinieron en el JSON
+        # PROCESAMIENTO Y GUARDADO OBLIGATORIO EN BASE DE DATOS
         alimentos = resultado_ia.get('alimentos', [])
         if alimentos and isinstance(alimentos, list):
             conn = database.obtener_conexion()
@@ -236,12 +230,12 @@ Si el mensaje no es comida (ej: saludos o charlas), deja "alimentos": [] y respo
             cursor.close()
             conn.close()
 
-        session['respuesta_ia_chat'] = resultado_ia.get('respuesta_chat', '¡Procesado y guardado correctamente!')
+        session['respuesta_ia_chat'] = resultado_ia.get('respuesta_chat', '¡Procesado y guardado con éxito!')
         return redirect(url_for('index'))
         
     except Exception as e:
         print(f"[ERROR INGESTA]: {e}")
-        session['respuesta_ia_chat'] = f"Recibido tu mensaje: '{descripcion}'. Hubo un pequeño detalle de conexión, pero ya quedó registrado."
+        session['respuesta_ia_chat'] = f"Error al procesar el mensaje: {str(e)}"
         return redirect(url_for('index'))
 
 @app.route('/actualizar_objetivos', methods=['POST'])
