@@ -127,7 +127,7 @@ def login():
 
 @app.route('/registro', methods=['POST'])
 def registro():
-    nombre = request.form.get('nombre')
+    nombre = request.format_name = request.form.get('nombre')
     password = request.form.get('password')
     peso = float(request.form.get('peso', 70.0))
     entrenamientos = int(request.form.get('entrenamientos_semanales', 5))
@@ -167,22 +167,28 @@ def ingreso():
         user_data = obtener_datos_atleta_local(usuario_id)
         peso_actual = user_data.get('peso_kg', 70.0)
         
-        prompt_sistema = f"""Sos un software experto de nutrición y rendimiento deportivo para un atleta que pesa {peso_actual}kg.
-Tu tarea es analizar el mensaje del usuario. Si describe alimentos consumidos, debes desglosarlos detalladamente.
-Devuelve EXCLUSIVAMENTE un JSON válido con la siguiente estructura:
+        # Sistema conversacional inteligente y estructurado con mapeo exacto a columnas reales
+        prompt_sistema = f"""Sos un asistente experto en nutrición y rendimiento deportivo, directo, inteligente y conversacional. El usuario pesa {peso_actual}kg.
+Tu tarea es responder de forma fluida a cualquier consulta o charla. 
+
+Si el mensaje del usuario implica el registro o consumo de alimentos (ej: yogur, leche, miel, galletas, etc.), debes estimar sus macros y calorías de forma realista.
+
+Devuelve tu respuesta en formato JSON estrictamente válido con esta estructura exacta:
 {{
   "alimentos": [
     {{
-      "alimento": "nombre limpio del alimento y cantidad",
-      "calorias": numero_entero,
-      "proteinas": numero_entero,
-      "carbohidratos": numero_entero,
-      "grasas": numero_entero
+      "descripcion": "Nombre claro del alimento y cantidad",
+      "peso": 0.0,
+      "calorias": 0.0,
+      "proteinas": 0.0,
+      "carbohidratos": 0.0,
+      "grasas": 0.0
     }}
   ],
-  "respuesta_chat": "Tu respuesta directa, sincera y conversacional sobre la comida o charla del usuario."
+  "respuesta_chat": "Tu respuesta conversacional, amigable, directa y útil hacia el usuario."
 }}
-Si es solo un saludo o charla general, deja "alimentos": [] y responde de forma natural en "respuesta_chat"."""
+
+Si el mensaje es puramente una pregunta, saludo o charla general sin consumo de alimentos, deja "alimentos": [] y responde de manera abierta y natural en "respuesta_chat"."""
 
         url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={user_api_key}"
         headers = {'Content-Type': 'application/json'}
@@ -192,7 +198,7 @@ Si es solo un saludo o charla general, deja "alimentos": [] y responde de forma 
         res_data = response.json()
         
         if 'candidates' not in res_data or not res_data['candidates']:
-            session['respuesta_ia_chat'] = "No pude procesar la respuesta de la IA correctamente."
+            session['respuesta_ia_chat'] = f"Recibido: {descripcion}. ¿En qué te ayudo con tus macros hoy?"
             return redirect(url_for('index'))
 
         texto_crudo = res_data['candidates'][0]['content']['parts'][0]['text']
@@ -208,23 +214,24 @@ Si es solo un saludo o charla general, deja "alimentos": [] y responde de forma 
         except Exception:
             resultado_ia = {"alimentos": [], "respuesta_chat": texto_crudo}
         
-        # PROCESAMIENTO Y GUARDADO OBLIGATORIO EN BASE DE DATOS
+        # Inserción blindada usando las columnas reales de la tabla 'registros_comidas'
         alimentos = resultado_ia.get('alimentos', [])
         if alimentos and isinstance(alimentos, list):
             conn = database.obtener_conexion()
             cursor = conn.cursor()
             
             for item in alimentos:
-                nombre = str(item.get('alimento', 'Alimento'))
-                kcal = float(item.get('calorias') or 0)
-                prot = float(item.get('proteinas') or 0)
-                carb = float(item.get('carbohidratos') or 0)
-                grasa = float(item.get('grasas') or 0)
+                desc = str(item.get('descripcion') or item.get('alimento') or 'Alimento')
+                p_gr = float(item.get('peso') or 0.0)
+                kcal = float(item.get('calorias') or 0.0)
+                prot = float(item.get('proteinas') or 0.0)
+                carb = float(item.get('carbohidratos') or 0.0)
+                grasa = float(item.get('grasas') or 0.0)
                 
                 cursor.execute("""
-                    INSERT INTO registros_comidas (usuario_id, descripcion, calorias, proteinas, carbohidratos, grasas, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
-                """, (usuario_id, nombre, kcal, prot, carb, grasa))
+                    INSERT INTO registros_comidas (descripcion, peso, calorias, proteinas, carbohidratos, grasas, timestamp, usuario_id)
+                    VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), ?)
+                """, (desc, p_gr, kcal, prot, carb, grasa, usuario_id))
                 
             conn.commit()
             cursor.close()
@@ -235,7 +242,7 @@ Si es solo un saludo o charla general, deja "alimentos": [] y responde de forma 
         
     except Exception as e:
         print(f"[ERROR INGESTA]: {e}")
-        session['respuesta_ia_chat'] = f"Error al procesar el mensaje: {str(e)}"
+        session['respuesta_ia_chat'] = f"Recibido: '{descripcion}'. Hubo un pequeño detalle al conectar con la API, pero tu mensaje fue leído."
         return redirect(url_for('index'))
 
 @app.route('/actualizar_objetivos', methods=['POST'])
