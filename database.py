@@ -23,6 +23,21 @@ def obtener_conexion():
         print(f"[ERROR CRÍTICO] No se pudo conectar a MySQL: {e}")
         return None
 
+def registrar_nuevo_usuario(nombre, password, peso, entrenamientos, objetivo, deficit):
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            INSERT INTO users (username, password, peso, entrenamientos, objetivo, deficit)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (nombre, password, peso, entrenamientos, objetivo, deficit))
+        conn.commit()
+        return {"success": True, "message": "Usuario registrado con éxito"}
+    except Exception as e:
+        conn.rollback()
+        return {"success": False, "message": str(e)}
+    finally:
+        conn.close()
 def registrar_nuevo_usuario(nombre, password, peso=70.0, entrenamientos=5, deficit=500):
     """Registra un nuevo usuario, guarda sus métricas y deja el espacio para su clave de Gemini."""
     conn = obtener_conexion()

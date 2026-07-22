@@ -4,6 +4,10 @@ import json
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import database
 import requests
+from database import init_db
+
+# Llamamos a init_db para garantizar que la tabla 'users' exista en la base de datos de producción
+init_db()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(24))
@@ -190,19 +194,27 @@ def registro():
     peso = float(request.form.get('peso', 70.0))
     entrenamientos = int(request.form.get('entrenamientos_semanales', 5))
     deficit = int(request.form.get('deficit_calorico', 0))
-    
+
     if deficit >= -100 and deficit <= 100:
         objetivo = "recomposicion"
     elif deficit < -100:
         objetivo = "definicion"
     else:
         objetivo = "volumen"
-    
-    resultado = database.registrar_nuevo_usuario(nombre, password, peso, entrenamientos, objective=objetivo, deficit=deficit)
-    
-    if resultado.get('status') == 'success':
+
+    resultado = database.registrar_nuevo_usuario(
+        nombre, 
+        password, 
+        peso, 
+        entrenamientos, 
+        objetivo, 
+        deficit
+    )
+
+    if resultado.get('success'):
         return redirect(url_for('login'))
-    return f"Error al registrar: {resultado.get('message')}", 400
+    else:
+        return f"Error al registrar: {resultado.get('message', 'Error desconocido')}", 400
 
 @app.route('/ingreso', methods=['POST'])
 def ingreso():
