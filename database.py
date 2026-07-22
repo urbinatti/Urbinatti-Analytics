@@ -7,6 +7,34 @@ import mysql.connector
 from mysql.connector import Error
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
+import os
+import sqlite3
+
+# Ruta absoluta basada en la ubicación real del archivo en el servidor
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+DB_PATH = os.path.join(BASE_DIR, 'analytics_urbinati.db')
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            peso REAL,
+            entrenamientos INTEGER,
+            objetivo TEXT,
+            deficit INTEGER
+        )
+    ''')
+    conn.commit()
+    conn.close()
 
 # Configuración de conexión local basada en tu instalación de MySQL 8.0.46
 def obtener_conexion():
