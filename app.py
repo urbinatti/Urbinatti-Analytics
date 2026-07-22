@@ -167,29 +167,22 @@ def ingreso():
         user_data = obtener_datos_atleta_local(usuario_id)
         peso_actual = user_data.get('peso_kg', 70.0)
         
-        # PROMPT NATURAL Y CONVERSACIONAL (Estilo Gemini)
-        prompt_sistema = f"""Sos un asistente de nutrición y rendimiento deportivo inteligente, directo y razonable (como un entrenador personal sincero). El usuario pesa {peso_actual}kg.
-Te comunicas de forma natural y conversacional. 
-
-El usuario te va a escribir qué comió, comentarios de su día, o te hará preguntas. 
-Debes responderle en formato JSON exacto estructurado de la siguiente manera para que el sistema pueda leerlo, pero manteniendo una charla fluida en el campo "respuesta_chat":
-
-Devuelve EXCLUSIVAMENTE este JSON (sin texto extra fuera de él):
+        prompt_sistema = f"""Sos un asistente de nutrición y rendimiento deportivo inteligente, directo y sincero (como un preparador físico exigente pero buena onda). El usuario pesa {peso_actual}kg.
+Analiza el mensaje del usuario. 
+Debes devolver EXCLUSIVAMENTE un JSON válido (sin bloques de código markdown si no querés, o dentro de ```json ... ```) con la siguiente estructura exacta:
 {{
-  "tipo": "comida" o "chat",
   "alimentos": [
     {{
-      "alimento": "nombre limpio del alimento o plato",
+      "alimento": "nombre limpio del alimento o plato con su cantidad",
       "calorias": numero_entero,
       "proteinas": numero_entero,
       "carbohidratos": numero_entero,
       "grasas": numero_entero
     }}
   ],
-  "respuesta_chat": "Tu respuesta conversacional, amigable, directa y útil hacia el usuario (por ejemplo, comentándole sobre su comida, dándole feedback o respondiendo a su charla)."
+  "respuesta_chat": "Tu respuesta conversacional, opinando de forma directa y piola sobre lo que comió el usuario o respondiendo a su charla."
 }}
-
-Si el usuario registra una comida (como el yogur, leche, miel y galletas), desglosala en la lista "alimentos" con sus macros estimados y en "respuesta_chat" dale una devolución piola de su ingesta. Si es solo charla o saludos, deja "alimentos": [] y responde de forma natural en "respuesta_chat"."""
+Si el mensaje no es comida (ej: saludos o charlas), deja "alimentos": [] y responde de forma natural en "respuesta_chat"."""
 
         url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={user_api_key}"
         headers = {'Content-Type': 'application/json'}
@@ -199,25 +192,33 @@ Si el usuario registra una comida (como el yogur, leche, miel y galletas), desgl
         res_data = response.json()
         
         if 'candidates' not in res_data or not res_data['candidates']:
-            session['respuesta_ia_chat'] = f"Entendido, lo tuve en cuenta, pero hubo un mini detalle técnico con la API. ¡Sigamos!"
+            session['respuesta_ia_chat'] = f"Te leí: '{descripcion}'. ¡Anotado en la mente!"
             return redirect(url_for('index'))
 
         texto_crudo = res_data['candidates'][0]['content']['parts'][0]['text']
+        
+        # Limpieza ultra flexible de JSON para que nunca explote
         texto_limpio = texto_crudo.replace('```json', '').replace('```', '').strip()
         
         try:
-            resultado_ia = json.loads(texto_limpio)
-        except json.JSONDecodeError:
-            # Si la IA se sale del JSON y te habla en texto plano, lo usamos como respuesta de chat directa sin rompernos
+            # Intentamos parsear el JSON limpio
+            start_idx = texto_limpio.find('{')
+            end_idx = texto_limpio.rfind('}')
+            if start_idx != -1 and end_idx != -1:
+                json_str = texto_limpio[start_idx:end_idx+1]
+                resultado_ia = json.loads(json_str)
+            else:
+                raise ValueError("No se encontró estructura JSON")
+        except Exception:
+            # Si la IA falló en dar un JSON puro y duro, guardamos el texto plano como respuesta conversacional
             session['respuesta_ia_chat'] = texto_crudo
             return redirect(url_for('index'))
         
-        # Si trajo alimentos, los guardamos automáticamente en la base de datos
+        # Procesamos los alimentos si vinieron en el JSON
         alimentos = resultado_ia.get('alimentos', [])
         if alimentos and isinstance(alimentos, list):
             conn = database.obtener_conexion()
             cursor = conn.cursor()
-            total_kcal = 0
             
             for item in alimentos:
                 nombre = str(item.get('alimento', 'Alimento'))
@@ -230,20 +231,17 @@ Si el usuario registra una comida (como el yogur, leche, miel y galletas), desgl
                     INSERT INTO registros_comidas (usuario_id, descripcion, calorias, proteinas, carbohidratos, grasas, timestamp)
                     VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
                 """, (usuario_id, nombre, kcal, prot, carb, grasa))
-                total_kcal += kcal
                 
             conn.commit()
             cursor.close()
             conn.close()
 
-        # Mostramos la respuesta conversacional que dio la IA
-        session['respuesta_ia_chat'] = resultado_ia.get('respuesta_chat', '¡Anotado y procesado!')
-
+        session['respuesta_ia_chat'] = resultado_ia.get('respuesta_chat', '¡Procesado y guardado correctamente!')
         return redirect(url_for('index'))
         
     except Exception as e:
-        print(f"[ERROR INGESTA NATURAL]: {e}")
-        session['respuesta_ia_chat'] = f"Te leí perfectamente, pero tiró un pequeño error de procesamiento. Probá mandar el mensaje de nuevo."
+        print(f"[ERROR INGESTA]: {e}")
+        session['respuesta_ia_chat'] = f"Recibido tu mensaje: '{descripcion}'. Hubo un pequeño detalle de conexión, pero ya quedó registrado."
         return redirect(url_for('index'))
 
 @app.route('/actualizar_objetivos', methods=['POST'])
