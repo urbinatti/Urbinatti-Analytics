@@ -66,30 +66,6 @@ def registrar_nuevo_usuario(nombre, password, peso, entrenamientos, objetivo, de
         return {"success": False, "message": str(e)}
     finally:
         conn.close()
-def registrar_nuevo_usuario(nombre, password, peso=70.0, entrenamientos=5, deficit=500):
-    """Registra un nuevo usuario, guarda sus métricas y deja el espacio para su clave de Gemini."""
-    conn = obtener_conexion()
-    if not conn:
-        return {"status": "error", "message": "Error de conexión a la base de datos."}
-    
-    cursor = conn.cursor()
-    token_interno = f"fit_live_{secrets.token_hex(16)}"
-    password_encriptada = generate_password_hash(password)
-    
-    try:
-        # Agregamos 'gemini_api_key' inicializada en NULL hasta que el usuario la pegue en su panel
-        cursor.execute("""
-            INSERT INTO usuarios (nombre, peso_kg, entrenamientos_semanales, deficit_objetivo_kcal, password_hash, api_key, gemini_api_key)
-            VALUES (%s, %s, %s, %s, %s, %s, NULL)
-        """, (nombre, peso, entrenamientos, deficit, password_encriptada, token_interno))
-        conn.commit()
-        return {"status": "success", "message": f"Usuario {nombre} registrado con éxito."}
-    except Error as e:
-        print(f"[ERROR REGISTRO] {e}")
-        return {"status": "error", "message": "El nombre de usuario ya existe o hubo un error."}
-    finally:
-        cursor.close()
-        conn.close()
 
 def verificar_credenciales(nombre, password):
     """Verifica el login y extrae el ID, nombre y la clave de Gemini real guardada."""
