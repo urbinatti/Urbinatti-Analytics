@@ -108,6 +108,44 @@ def index():
         margen_proteina=margen_proteina
     )
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        nombre = request.form.get('nombre')
+        password = request.form.get('password')
+        
+        usuario = database.verificar_credenciales(nombre, password)
+        if usuario:
+            session['usuario_id'] = usuario['id']
+            session['usuario_nombre'] = usuario['nombre']
+            session['usuario_api_key'] = usuario.get('gemini_api_key')
+            return redirect(url_for('index'))
+        else:
+            return "Credenciales incorrectas", 401
+            
+    return render_template('login.html')
+
+@app.route('/registro', methods=['POST'])
+def registro():
+    nombre = request.form.get('nombre')
+    password = request.form.get('password')
+    peso = float(request.form.get('peso', 70.0))
+    entrenamientos = int(request.form.get('entrenamientos_semanales', 5))
+    deficit = int(request.form.get('deficit_calorico', 0))
+    
+    if deficit >= -100 and deficit <= 100:
+        objetivo = "recomposicion"
+    elif deficit < -100:
+        objetivo = "definicion"
+    else:
+        objetivo = "volumen"
+    
+    resultado = database.registrar_nuevo_usuario(nombre, password, peso, entrenamientos, objetivo, deficit)
+    
+    if resultado.get('status') == 'success':
+        return redirect(url_for('login'))
+    return f"Error al registrar: {resultado.get('message')}", 400
+
 @app.route('/ingreso', methods=['POST'])
 def ingreso():
     if 'usuario_id' not in session:
@@ -129,52 +167,61 @@ def ingreso():
         user_data = obtener_datos_atleta_local(usuario_id)
         peso_actual = user_data.get('peso_kg', 70.0)
         
-        prompt_sistema = f"""Sos un asistente de nutrición. El usuario pesa {peso_actual}kg. Analiza su mensaje. 
-Devuelve EXCLUSIVAMENTE un JSON válido:
+        prompt_sistema = f"""Sos un asistente experto en nutrición y rendimiento deportivo, inteligente, directo y conversacional. El usuario pesa {peso_actual}kg.
+Tu rol es mantener una charla fluida e informativa. Si el mensaje del usuario incluye alimentos consumidos, estima sus calorías y macronutrientes de forma realista.
+
+Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
 {{
   "alimentos": [
     {{
-      "descripcion": "alimento y cantidad",
-      "calorias": 0,
-      "proteinas": 0,
-      "carbohidratos": 0,
-      "grasas": 0
+      "descripcion": "nombre claro del alimento y cantidad",
+      "peso": 0.0,
+      "calorias": 0.0,
+      "proteinas": 0.0,
+      "carbohidratos": 0.0,
+      "grasas": 0.0
     }}
   ],
-  "respuesta_chat": "Tu respuesta conversacional."
-}}"""
+  "respuesta_chat": "Tu respuesta conversacional completa y natural hacia el usuario."
+}}
+Si es solo charla o preguntas generales, deja "alimentos": [] y responde de forma natural en "respuesta_chat"."""
 
         url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={user_api_key}"
         headers = {'Content-Type': 'application/json'}
         payload = {"contents": [{"parts": [{"text": prompt_sistema}, {"text": f"Mensaje: {descripcion}"}]}]}
         
-        # Hacemos la petición con timeout para que no se cuelgue
-        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
         
-        # Si la API de Google devuelve un error HTTP, lo mostramos de inmediato
         if response.status_code != 200:
-            session['respuesta_ia_chat'] = f"❌ Error HTTP de la API ({response.status_code}): {response.text}"
+            session['respuesta_ia_chat'] = f"Error de comunicación con la API ({response.status_code})."
             return redirect(url_for('index'))
             
         res_data = response.json()
         
         if 'candidates' not in res_data or not res_data['candidates']:
-            session['respuesta_ia_chat'] = f"❌ Respuesta vacía de la API: {res_data}"
+            session['respuesta_ia_chat'] = "No obtuve respuesta válida de la IA."
             return redirect(url_for('index'))
 
         texto_crudo = res_data['candidates'][0]['content']['parts'][0]['text']
         texto_limpio = texto_crudo.replace('```json', '').replace('```', '').strip()
         
-        start_idx = texto_limpio.find('{')
-        end_idx = texto_limpio.rfind('}')
-        resultado_ia = json.loads(texto_limpio[start_idx:end_idx+1])
+        try:
+            start_idx = texto_limpio.find('{')
+            end_idx = texto_limpio.rfind('}')
+            if start_idx != -1 and end_idx != -1:
+                resultado_ia = json.loads(texto_limpio[start_idx:end_idx+1])
+            else:
+                resultado_ia = {"alimentos": [], "respuesta_chat": texto_crudo}
+        except Exception:
+            resultado_ia = {"alimentos": [], "respuesta_chat": texto_crudo}
         
         alimentos = resultado_ia.get('alimentos', [])
         if alimentos and isinstance(alimentos, list):
             conn = database.obtener_conexion()
             cursor = conn.cursor()
             for item in alimentos:
-                desc = str(item.get('descripcion') or 'Alimento')
+                desc = str(item.get('descripcion') or item.get('alimento') or 'Alimento')
+                p_gr = float(item.get('peso') or 0.0)
                 kcal = float(item.get('calorias') or 0.0)
                 prot = float(item.get('proteinas') or 0.0)
                 carb = float(item.get('carbohidratos') or 0.0)
@@ -182,8 +229,8 @@ Devuelve EXCLUSIVAMENTE un JSON válido:
                 
                 cursor.execute("""
                     INSERT INTO registros_comidas (descripcion, peso, calorias, proteinas, carbohidratos, grasas, timestamp, usuario_id)
-                    VALUES (?, 0, ?, ?, ?, ?, datetime('now', 'localtime'), ?)
-                """, (desc, kcal, prot, carb, grasa, usuario_id))
+                    VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), ?)
+                """, (desc, p_gr, kcal, prot, carb, grasa, usuario_id))
             conn.commit()
             cursor.close()
             conn.close()
@@ -192,9 +239,10 @@ Devuelve EXCLUSIVAMENTE un JSON válido:
         return redirect(url_for('index'))
         
     except Exception as e:
-        # AQUÍ VEREMOS EL ERROR TÉCNICO EXACTO EN LA PANTALLA
-        session['respuesta_ia_chat'] = f"❌ EXCEPCIÓN PYTHON: {str(e)}"
+        print(f"[ERROR CRITICO INGESTA]: {e}")
+        session['respuesta_ia_chat'] = f"Error interno al procesar el mensaje."
         return redirect(url_for('index'))
+
 @app.route('/actualizar_objetivos', methods=['POST'])
 def actualizar_objetivos():
     usuario_id = session.get('usuario_id')
