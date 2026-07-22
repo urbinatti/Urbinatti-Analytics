@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JU - Acceso</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-principal: #12161f;
+            --bg-card: #1a202c;
+            --primario: #3b82f6;
+            --primario-dark: #2563eb;
+            --acento-energia: #ff6b4a;
+            --texto: #f8fafc;
+            --texto-mutated: #94a3b8;
+            --borde: #2d3748;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: var(--bg-principal); color: var(--texto); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; letter-spacing: -0.3px; }
+        
+        .login-container {
+            width: 100%;
+            max-width: 440px;
+            background: var(--bg-card);
+            border: 1px solid var(--borde);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .brand-header { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 25px; }
+        .logo-box { background: var(--acento-energia); color: #fff; font-weight: 900; width: 36px; height: 36px; display: flex; justify-content: center; align-items: center; border-radius: 8px; }
+        .brand-text { font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+        .brand-text span { color: var(--texto-mutated); font-weight: 400; }
+        
+        h2 { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 6px; }
+        .subtitle { font-size: 14px; color: var(--texto-mutated); text-align: center; margin-bottom: 25px; line-height: 1.4; }
+        
+        .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+        .form-row { display: flex; gap: 12px; margin-bottom: 18px; }
+        .form-row .form-group { flex: 1; margin-bottom: 0; }
+        
+        label { font-size: 11px; font-weight: 600; color: var(--texto-mutado); text-transform: uppercase; letter-spacing: 0.5px; }
+        input, select { background: var(--bg-principal); border: 1px solid var(--borde); color: var(--texto); padding: 13px 16px; border-radius: 8px; outline: none; font-size: 14px; width: 100%; }
+        input:focus, select:focus { border-color: var(--primario); }
+        
+        .btn { width: 100%; background: var(--primario); color: #fff; border: none; padding: 14px; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 10px; transition: background 0.2s; }
+        .btn:hover { background: var(--primario-dark); }
+        .btn.btn-registro { background: var(--acento-energia); }
+        
+        .footer-text { text-align: center; font-size: 13px; color: var(--texto-mutated); margin-top: 25px; }
+        .link-toggle { color: var(--primario); font-weight: 700; cursor: pointer; }
+        .badge-info { font-size: 12px; color: var(--texto-mutado); margin-top: 4px; display: block; line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+<div class="login-container">
+    <div class="brand-header">
+        <div class="logo-box">JU</div>
+        <div class="brand-text">URBINATTI <span>PERFORMANCE</span></div>
+    </div>
+
+    <!-- VISTA LOGIN -->
+    <div id="view-login">
+        <h2>Ingresar al Sistema</h2>
+        <p class="subtitle">Gestioná tu evolución física inteligente.</p>
+        <form action="/login" method="POST">
+            <div class="form-group">
+                <label>Nombre de Usuario</label>
+                <input type="text" name="nombre" placeholder="Tu usuario" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label>Contraseña Acceso</label>
+                <input type="password" name="password" placeholder="••••••••" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn">Iniciar Sesión <i class="fa-solid fa-arrow-right"></i></button>
+        </form>
+        <p class="footer-text">¿Sos un alumno nuevo? <span class="link-toggle" id="go-to-register">Registrate acá</span></p>
+    </div>
+
+    <!-- VISTA REGISTRO CON BALANCE LIBRE -->
+    <div id="view-register" style="display: none;">
+        <h2>Perfil de Atleta</h2>
+        <p class="subtitle">Configurá tu balance energético inicial.</p>
+        <form action="/registro" method="POST">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Usuario</label>
+                    <input type="text" name="nombre" placeholder="ej. joaco" required>
+                </div>
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" name="password" placeholder="••••••••" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Peso (kg)</label>
+                    <input type="number" name="peso" step="0.1" value="70.0" required>
+                </div>
+                <div class="form-group">
+                    <label>Frecuencia Gym</label>
+                    <select name="entrenamientos_semanales">
+                        <option value="3">3 días/semana</option>
+                        <option value="4">4 días/semana</option>
+                        <option value="5" selected>5 días/semana</option>
+                        <option value="6">6 días/semana</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Balance Calórico Diario Objetivo (kcal)</label>
+                <input type="number" id="reg-deficit" name="deficit_calorico" value="-500" placeholder="Ej: -500 (Def), 0 (Rec), 400 (Vol)" required>
+                <span class="badge-info" id="reg-info-meta">Meta estimada: <strong style="color: var(--primario);">Definición Corporal</strong></span>
+            </div>
+
+            <button type="submit" class="btn btn-registro">Configurar y Comenzar <i class="fa-solid fa-bolt"></i></button>
+        </form>
+        <p class="footer-text">¿Ya tenés cuenta? <span class="link-toggle" id="go-to-login">Iniciá sesión acá</span></p>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const viewLogin = document.getElementById('view-login');
+        const viewRegister = document.getElementById('view-register');
+        const btnGoToRegister = document.getElementById('go-to-register');
+        const btnGoToLogin = document.getElementById('go-to-login');
+        const inputRegDeficit = document.getElementById('reg-deficit');
+        const infoRegMeta = document.getElementById('reg-info-meta');
+
+        btnGoToRegister.addEventListener('click', () => {
+            viewLogin.style.display = 'none';
+            viewRegister.style.display = 'block';
+        });
+        btnGoToLogin.addEventListener('click', () => {
+            viewRegister.style.display = 'none';
+            viewLogin.style.display = 'block';
+        });
+
+        if (inputRegDeficit && infoRegMeta) {
+            inputRegDeficit.addEventListener('input', () => {
+                const val = parseInt(inputRegDeficit.value) || 0;
+                if (val >= -100 && val <= 100) {
+                    infoRegMeta.innerHTML = 'Meta estimada: <strong style="color: #eab308;">Recomposición Corporal (Rango ±100)</strong>';
+                } else if (val < -100) {
+                    infoRegMeta.innerHTML = 'Meta estimada: <strong style="color: #ff6b4a;">Definición Estricta</strong>';
+                } else {
+                    infoRegMeta.innerHTML = 'Meta estimada: <strong style="color: #3b82f6;">Volumen Muscular</strong>';
+                }
+            });
+        }
+    });
+</script>
+</body>
+</html>

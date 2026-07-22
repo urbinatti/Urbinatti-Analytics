@@ -3,283 +3,341 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Urbinatti Analytics - Dashboard de Control Operativo</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>JU - Panel de Control</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-principal: #12161f;     
+            --bg-card: #1a202c;          
+            --primario: #3b82f6;         
+            --primario-dark: #2563eb;
+            --acento-energia: #ff6b4a;   
+            --texto: #f8fafc;            
+            --texto-mutated: #94a3b8;     
+            --borde: #2d3748;            
+            --rojo: #ef4444;
+        }
 
+        [data-theme="light"] {
+            --bg-principal: #f4f6f9;     
+            --bg-card: #ffffff;          
+            --primario: #2563eb;         
+            --primario-dark: #1d4ed8;
+            --acento-energia: #ff5225;   
+            --texto: #0f172a;            
+            --texto-mutated: #64748b;     
+            --borde: #e2e8f0;            
+            --rojo: #dc2626;
+        }
 
-    <!-- Configuración PWA -->
-<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Urbinatti Analytics">
-<link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3412/3412862.png">
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; transition: background-color 0.3s, border-color 0.3s, color 0.3s; }
+        body { background-color: var(--bg-principal); color: var(--texto); padding: 0; letter-spacing: -0.3px; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+        .card { background: var(--bg-card); border: 1px solid var(--borde); border-radius: 16px; padding: 24px; margin-bottom: 25px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+
+        input, select, textarea { background: var(--bg-principal); border: 1px solid var(--borde); color: var(--texto); padding: 12px 16px; border-radius: 8px; outline: none; font-size: 14px; }
+        input:focus, select:focus, textarea:focus { border-color: var(--primario); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+
+        .btn { background: var(--primario); color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; display: inline-flex; justify-content: center; align-items: center; gap: 8px; transition: background 0.2s, transform 0.1s; }
+        .btn:hover { background: var(--primario-dark); }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .item-historial { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--borde); }
+        .item-historial:last-child { border-bottom: none; }
+    </style>
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans min-h-screen">
+<body data-theme="dark">
 
-    <div class="max-w-7xl mx-auto px-4 py-8">
+<!-- TOAST NOTIFICATION -->
+<div id="toast-notification" style="position: fixed; top: 20px; right: 20px; background: #22c55e; color: #ffffff; padding: 16px 24px; border-radius: 12px; font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 10px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); transform: translateY(-100px); opacity: 0; transition: transform 0.3s ease, opacity 0.3s ease; z-index: 9999;">
+    <i class="fa-solid fa-circle-check"></i> <span id="toast-message">Configuración guardada.</span>
+</div>
+
+<div class="container">
+    
+    <!-- HEADER -->
+    <header style="display: flex; justify-content: space-between; align-items: center; padding: 20px 0; margin-bottom: 30px; border-bottom: 1px solid var(--borde);">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="background: var(--acento-energia); color: #fff; font-weight: 900; font-size: 16px; width: 36px; height: 36px; display: flex; justify-content: center; align-items: center; border-radius: 8px;">JU</div>
+            <div style="font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">URBINATTI <span style="color: var(--texto-mutated); font-weight: 400;">PERFORMANCE</span></div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <button id="toggle-theme-btn" style="background: transparent; border: 1px solid var(--borde); color: var(--texto); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                <i class="fa-solid fa-sun" id="theme-icon"></i>
+            </button>
+            <p style="color: var(--texto-mutated); font-size: 13px;">
+                Atleta: <strong style="color: var(--texto);">{{ usuario_nombre }}</strong> | 
+                <a href="/logout" style="color: var(--rojo); text-decoration: none; margin-left: 10px; font-weight: bold;">Salir</a>
+            </p>
+        </div>
+    </header>
+
+    <!-- KEY BIND -->
+    <div class="card" style="border-left: 4px solid var(--primario);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+            <div style="max-width: 650px; flex-grow: 1;">
+                <h4 style="font-size: 16px; font-weight: 700; margin-bottom: 4px;">Vincular tu Motor de IA (Gemini)</h4>
+                <p style="color: var(--texto-mutated); font-size: 13px;">Inyectá tu credencial de ejecución independiente sin importar su formato de origen.</p>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <input type="password" id="gemini-key-input" placeholder="Pegá tu API Key acá..." style="flex-grow: 1;" value="{{ session.get('usuario_api_key') or '' }}">
+                    <button type="button" class="btn" id="btn-guardar-key" style="white-space: nowrap;">Activar Créditos</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CARDS DE METRICAS -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 25px;">
+        <div class="card" style="margin-bottom: 0;">
+            <span style="font-size: 12px; text-transform: uppercase; color: var(--texto-mutated); font-weight: bold;">Calorías Totales</span>
+            <h2 style="font-size: 32px; font-weight: 800; margin-top: 5px; color: var(--primario);">{{ totales.calorias if totales is defined else 0 }} <span style="font-size: 14px; color: var(--texto-mutated); font-weight: 400;">kcal</span></h2>
+        </div>
+        <div class="card" style="margin-bottom: 0;">
+            <span style="font-size: 12px; text-transform: uppercase; color: var(--texto-mutated); font-weight: bold;">Proteína Ingerida</span>
+            <h2 style="font-size: 32px; font-weight: 800; margin-top: 5px; color: var(--acento-energia);">{{ totales.proteinas if totales is defined else 0 }} <span style="font-size: 14px; color: var(--texto-mutated); font-weight: 400;">g</span></h2>
+        </div>
+        <div class="card" style="margin-bottom: 0;">
+            <span style="font-size: 12px; text-transform: uppercase; color: var(--texto-mutated); font-weight: bold;">Carbohidratos / Grasas</span>
+            <h3 style="font-size: 22px; font-weight: 700; margin-top: 12px;">{{ totales.carbohidratos if totales is defined else 0 }}g <span style="font-size: 14px; color: var(--texto-mutated);">CH</span> / {{ totales.grasas if totales is defined else 0 }}g <span style="font-size: 14px; color: var(--texto-mutated);">G</span></h3>
+        </div>
+    </div>
+
+    <!-- MAIN BODY GRID -->
+    <div class="grid-main" style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 25px;">
         
-        <!-- Header del Sistema MIS Avanzado -->
-        <header class="mb-8 border-b border-slate-700 pb-4 flex justify-between items-center">
-            <div>
-                <h1 class="text-3xl font-black uppercase tracking-wider text-emerald-400">URBINATTI PERFORMANCE ANALYTICS</h1>
-                <p class="text-xs font-mono text-slate-400">SISTEMA INTEGRADO DE AUDITORÍA FÍSICA Y LOGÍSTICA DE NUTRICIÓN | RESPONSABLE: JOAQUÍN URBINATTI</p>
+        <div>
+            <!-- CHAT / ASISTENTE Y REGISTRO -->
+<div class="card">
+    <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 15px;">💬 Asistente & Registro con IA</h3>
+    
+    <!-- ÁREA DE HISTORIAL DE CHAT DE LA SESIÓN -->
+    <div style="height: 180px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+        {% if session.get('respuesta_ia_chat') %}
+            <div style="margin-bottom: 10px; text-align: right;">
+                <span style="display: inline-block; background: var(--primario); color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 13px;">
+                    {{ session.get('ultimo_mensaje_usuario', '') }}
+                </span>
             </div>
-            <div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 text-right">
-                <span class="text-xs text-slate-400 block font-mono">ESTADO DE USUARIO</span>
-                <span class="text-sm font-bold text-slate-200">Masa: {{ peso }} kg | Frecuencia: {{ frecuencia }} p/semana</span>
+            <div style="margin-bottom: 10px; text-align: left;">
+                <span style="display: inline-block; background: rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 8px; font-size: 13px; line-height: 1.4;">
+                    🤖 {{ session.get('respuesta_ia_chat') }}
+                </span>
             </div>
-        </header>
+        {% else %}
+            <p style="color: var(--texto-mutated); font-size: 13px; text-align: center; margin-top: 60px;">
+                Escribí un mensaje de chat o decime qué comiste/entrenaste para registrarlo.
+            </p>
+        {% endif %}
+    </div>
 
-        <!-- Bloque Analítico de Indicadores Clave (Métricas de Control de Déficit) -->
-        <section class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
-                <h3 class="text-xs font-bold uppercase text-slate-400 mb-1">Calorías Objetivo Diarias</h3>
-                <p class="text-2xl font-black text-slate-200">{{ limite_calorias }} kcal</p>
-                <span class="text-[10px] text-emerald-400 block font-mono mt-1">Déficit de -600 kcal integrado</span>
+    <!-- FORMULARIO DE ENVÍO -->
+    <form action="/ingreso" method="POST" style="display: flex; gap: 10px;">
+        <input type="text" name="descripcion" placeholder="Escribí una consulta o registro..." required style="flex: 1; padding: 10px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff;" autocomplete="off">
+        <button type="submit" class="btn"><i class="fa-solid fa-paper-plane"></i></button>
+    </form>
+</div>
+            <div class="card">
+                <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 15px;">Historial de Registros de Hoy</h3>
+                <div class="lista-historial">
+                    {% if registros %}
+                        {% for reg in registros %}
+                            <div class="item-historial">
+                                <div>
+                                    <p style="font-size: 14px; font-weight: 600;">{{ reg.descripcion }}</p>
+                                    <span style="font-size: 12px; color: var(--texto-mutated);">{{ reg.timestamp }}</span>
+                                </div>
+                                <!-- Dentro del bucle del historial en index.html -->
+<div class="item-historial" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+    <div>
+        <p style="font-size: 14px; font-weight: 600; margin: 0;">{{ reg.descripcion }}</p>
+        <span style="font-size: 12px; color: var(--texto-mutated);">{{ reg.timestamp }}</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="text-align: right;">
+            <span style="font-size: 14px; font-weight: bold; color: var(--primario);">{{ reg.calorias }} kcal</span>
+            <p style="font-size: 11px; color: var(--texto-mutated); margin: 0;">P: {{ reg.proteinas }}g | C: {{ reg.carbohidratos }}g | G: {{ reg.grasas }}g</p>
+        </div>
+        <!-- BOTÓN ELIMINAR -->
+        <form action="/borrar_comida/{{ reg.id }}" method="POST" style="margin: 0;">
+            <button type="submit" style="background: none; border: none; color: #ff4d4d; cursor: pointer; padding: 4px;" title="Eliminar registro">
+                <i class="fa-solid fa-trash"></i>
+            </button>
+        </form>
+    </div>
+</div>
+                                <div style="text-align: right;">
+                                    <span style="font-size: 14px; font-weight: bold; color: var(--primario);">{{ reg.calorias }} kcal</span>
+                                    <p style="font-size: 11px; color: var(--texto-mutated);">P: {{ reg.proteinas }}g | C: {{ reg.carbohidratos }}g | G: {{ reg.grasas }}g</p>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p style="color: var(--texto-mutated); font-size: 14px; text-align: center; padding: 20px 0;">No cargaste comidas o entrenamientos todavía hoy.</p>
+                    {% endif %}
+                </div>
             </div>
-            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
-                <h3 class="text-xs font-bold uppercase text-slate-400 mb-1">Consumo Registrado Hoy</h3>
-                <p class="text-2xl font-black text-amber-500">{{ metricas.calorias_hoy }} kcal</p>
-            </div>
-            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
-                <h3 class="text-xs font-bold uppercase text-slate-400 mb-1">Margen Disponible</h3>
-                <p class="text-2xl font-black {% if balance >= 0 %}text-emerald-400{% else %}text-red-500{% endif %}">{{ balance }} kcal</p>
-            </div>
-            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
-                <h3 class="text-xs font-bold uppercase text-slate-400 mb-1">Auditoría de Control</h3>
-                <p class="text-lg font-black uppercase mt-1 px-2 py-1 rounded text-center {% if estado_deficit == 'DENTRO DEL RANGO' %}bg-emerald-900/40 text-emerald-400 border border-emerald-700{% else %}bg-red-900/40 text-red-400 border border-red-700{% endif %}">
-                    {{ estado_deficit }}
+        </div>
+        
+
+        <!-- RIGHT SIDE PANEL -->
+        <div>
+            <div class="card" style="background: linear-gradient(180deg, var(--bg-card) 0%, rgba(59, 130, 246, 0.03) 100%);">
+                <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px;"><i class="fa-solid fa-dumbbell" style="color: var(--acento-energia);"></i> Status del Entrenador</h3>
+                <p style="color: var(--texto-mutated); font-size: 13px; line-height: 1.5;">
+                    Meta de Balance: 
+                    {% set def_val = user_data.deficit_objetivo_kcal if user_data else -500 %}
+                    {% if def_val >= -100 and def_val <= 100 %}
+                        <strong style="color: #eab308;">Recomposición Corporal ({{ def_val }} kcal)</strong>
+                    {% elif def_val < -100 %}
+                        <strong style="color: #ff6b4a;">Definición Estricta ({{ def_val }} kcal)</strong>
+                    {% else %}
+                        <strong style="color: #3b82f6;">Volumen Muscular (+{{ def_val }} kcal)</strong>
+                    {% endif %}
                 </p>
             </div>
-        </section>
 
-        <!-- Formularios de Control Transaccional (Entradas) -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            
-            <!-- Entrada 1: Control de Fuerza en Gimnasio -->
-            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
-                <h2 class="text-base font-bold uppercase text-slate-200 mb-4 border-b border-slate-700 pb-2">Log de Entrenamiento Operativo</h2>
-                <form action="/registrar_entrenamiento" method="POST" class="space-y-3">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Grupo Muscular</label>
-                            <input type="text" name="grupo" required placeholder="Ej: Espalda / Biceps" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+            <!-- SECCIÓN EDITABLE SIN INCONSISTENCIAS -->
+            <div class="card">
+                <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 12px;"><i class="fa-solid fa-sliders" style="color: var(--primario);"></i> Ajustar Variables</h3>
+                <p style="color: var(--texto-mutated); font-size: 13px; margin-bottom: 15px;">Modificá tus variables metabólicas de forma directa.</p>
+                
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                    <div style="display: flex; gap: 10px;">
+                        <div style="flex: 1;">
+                            <label style="font-size: 11px; font-weight: bold; color: var(--texto-mutated);">Peso (kg)</label>
+                            <input type="number" id="edit-peso" step="0.1" value="{{ user_data.peso_kg if user_data else 70.0 }}" style="width: 100%; margin-top: 4px;">
                         </div>
-                        <div>
-                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Ejercicio Clave</label>
-                            <input type="text" name="ejercicio" required placeholder="Ej: Agarre Polea Alta" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <div style="flex: 1;">
+                            <label style="font-size: 11px; font-weight: bold; color: var(--texto-mutated);">Gym (Días)</label>
+                            <select id="edit-entrenamientos" style="width: 100%; margin-top: 4px;">
+                                <option value="3" {% if user_data and user_data.entrenamientos_semanales == 3 %}selected{% endif %}>3 días</option>
+                                <option value="4" {% if user_data and user_data.entrenamientos_semanales == 4 %}selected{% endif %}>4 días</option>
+                                <option value="5" {% if user_data and user_data.entrenamientos_semanales == 5 or not user_data %}selected{% endif %}>5 días</option>
+                                <option value="6" {% if user_data and user_data.entrenamientos_semanales == 6 %}selected{% endif %}>6 días</option>
+                            </select>
                         </div>
                     </div>
-                    <div class="grid grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Series</label>
-                            <input type="number" name="series" required min="1" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Reps</label>
-                            <input type="number" name="reps" required min="1" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Carga (Kg)</label>
-                            <input type="number" step="0.1" name="carga" required min="0" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
-                        </div>
+
+                    <div>
+                        <label style="font-size: 11px; font-weight: bold; color: var(--texto-mutated);">Balance Calórico Neto (kcal/día)</label>
+                        <input type="number" id="edit-deficit" value="{{ user_data.deficit_objetivo_kcal if user_data else -500 }}" placeholder="Negativo = Def, Positivo = Vol" style="width: 100%; margin-top: 4px;">
+                        <span class="badge-info" id="panel-info-meta" style="font-size: 12px; margin-top: 6px; display: block;"></span>
                     </div>
-                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-slate-900 font-black py-2 rounded text-xs uppercase tracking-wider transition">Inyectar Registro SQL</button>
-                </form>
+
+                    <button class="btn" id="btn-actualizar-objetivos" style="width: 100%; background: var(--primario-dark);">Reajustar Parámetros</button>
+                </div>
             </div>
 
-            <!-- Entrada 2: Log Nutricional Inteligente -->
-            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
-                <h2 class="text-base font-bold uppercase text-slate-200 mb-4 border-b border-slate-700 pb-2">Auditoría Nutricional Avanzada</h2>
-                <form action="/registrar_nutricion" method="POST" class="space-y-3">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Alimento / Ingesta</label>
-                            <input type="text" name="alimento" required placeholder="Ej: Milanesa de Pollo" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Porción Física (Gramos)</label>
-                            <input type="number" name="gramos" required min="1" placeholder="Cantidad bruta" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-3 gap-4 bg-slate-900/60 p-2 rounded border border-slate-700/50">
-                        <div class="col-span-3 text-[9px] font-mono text-slate-500 uppercase">Valores base cada 100g (Se ignoran si detecta la palabra "Milanesa"):</div>
-                        <div>
-                            <label class="block text-[9px] font-mono text-slate-400 uppercase">Prot (g)</label>
-                            <input type="number" step="0.1" name="prot" value="0" class="w-full bg-slate-900 border border-slate-700 rounded p-1 text-xs text-slate-200">
-                        </div>
-                        <div>
-                            <label class="block text-[9px] font-mono text-slate-400 uppercase">Carb (g)</label>
-                            <input type="number" step="0.1" name="carb" value="0" class="w-full bg-slate-900 border border-slate-700 rounded p-1 text-xs text-slate-200">
-                        </div>
-                        <div>
-                            <label class="block text-[9px] font-mono text-slate-400 uppercase">Grasa (g)</label>
-                            <input type="number" step="0.1" name="grasa" value="0" class="w-full bg-slate-900 border border-slate-700 rounded p-1 text-xs text-slate-200">
-                        </div>
-                    </div>
-                    <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-black py-2 rounded text-xs uppercase tracking-wider transition">Procesar Transacción Alimento</button>
-                </form>
-            </div>
-        </div>
-
-        <!-- Tablas de Datos Relacionales (Vistas SQL en tiempo real) -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
-                <h3 class="text-sm font-bold uppercase text-slate-400 mb-3">Historial de Cargas Físicas (Últimos 5 SQL entries)</h3>
-                <table class="w-full text-left text-xs border-collapse">
-                    <thead>
-                        <tr class="border-b border-slate-700 text-slate-400 uppercase">
-                            <th class="py-2">Músculo</th>
-                            <th class="py-2">Ejercicio</th>
-                            <th class="py-2 text-center">Series x Reps</th>
-                            <th class="py-2 text-right">Carga</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-700/50">
-                        {% for item in metricas.lista_entrenamientos %}
-                        <tr class="text-slate-300">
-                            <td class="py-2 font-bold text-slate-200">{{ item[0] }}</td>
-                            <td class="py-2">{{ item[1] }}</td>
-                            <td class="py-2 text-center">{{ item[2] }} x {{ item[3] }}</td>
-                            <td class="py-2 text-right font-mono text-emerald-400">{{ item[4] }} Kg</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
-                <h3 class="text-sm font-bold uppercase text-slate-400 mb-3">Auditoría Nutricional (Últimos 5 SQL entries)</h3>
-                <table class="w-full text-left text-xs border-collapse">
-                    <thead>
-                        <tr class="border-b border-slate-700 text-slate-400 uppercase">
-                            <th class="py-2">Alimento</th>
-                            <th class="py-2 text-center">P / C / G</th>
-                            <th class="py-2 text-right">Aporte Total</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-700/50">
-                        {% for item in metricas.lista_nutricion %}
-                        <tr class="text-slate-300">
-                            <td class="py-2 font-bold text-slate-200">{{ item[0] }}</td>
-                            <td class="py-2 text-center font-mono text-slate-400">{{ item[2]|round(1) }}g / {{ item[3]|round(1) }}g / {{ item[4]|round(1) }}g</td>
-                            <td class="py-2 text-right font-mono text-amber-400">{{ item[1]|round(1) }} kcal</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-    </div>
-    <!-- VENTANA FLOTANTE DE CHAT CON IA -->
-<div class="fixed bottom-5 right-5 z-50 flex flex-col items-end">
-    <!-- Botón para abrir/cerrar chat -->
-    <button id="chat-toggle" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold p-4 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-        </svg>
-        <span>Asistente IA</span>
-    </button>
-
-    <!-- Caja de chat ocultable -->
-    <div id="chat-box" class="hidden w-80 md:w-96 h-96 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden mt-3 transition-all">
-        <!-- Encabezado -->
-        <div class="bg-slate-800 border-b border-slate-700 p-3 flex justify-between items-center">
-            <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <h3 class="font-bold text-emerald-400 text-sm">URBINATTI AI ASSISTANT</h3>
-            </div>
-        </div>
-        <!-- Contenedor de mensajes -->
-        <div id="chat-messages" class="flex-1 p-3 overflow-y-auto space-y-2 text-xs text-slate-300">
-            <div class="bg-slate-800 p-2 rounded-lg max-w-[85%] border border-slate-700">
-                ¡Hola Joaquín! Soy tu motor de auditoría inteligente. ¿Querés analizar las métricas calóricas de hoy o revisar un grupo muscular específico?
-            </div>
-        </div>
-        <!-- Input e ingreso de texto -->
-        <div class="p-2 border-t border-slate-700 bg-slate-950 flex gap-1">
-            <input type="text" id="chat-input" placeholder="Preguntale a la IA..." class="flex-1 bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
-            <button id="chat-send" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 px-3 py-1.5 rounded font-bold text-xs transition-all">Enviar</button>
         </div>
     </div>
 </div>
-<!-- LÓGICA JAVASCRIPT DEL CHAT ASINCRÓNICO -->
+
 <script>
-    const chatToggle = document.getElementById('chat-toggle');
-    const chatBox = document.getElementById('chat-box');
-    const chatInput = document.getElementById('chat-input');
-    const chatSend = document.getElementById('chat-send');
-    const chatMessages = document.getElementById('chat-messages');
+document.addEventListener('DOMContentLoaded', () => {
+    const toggleThemeBtn = document.getElementById('toggle-theme-btn');
+    const body = document.body;
+    const themeIcon = document.getElementById('theme-icon');
 
-    // 1. Mostrar / Ocultar la caja de chat
-    chatToggle.addEventListener('click', () => {
-        chatBox.classList.toggle('hidden');
-    });
-
-    // Función para agregar mensajes a la pantalla
-    function appendMessage(text, isUser = false) {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = isUser 
-            ? 'bg-emerald-500 text-slate-950 p-2 rounded-lg max-w-[85%] ml-auto font-medium' 
-            : 'bg-slate-800 p-2 rounded-lg max-w-[85%] border border-slate-700';
-        msgDiv.innerText = text;
-        chatMessages.appendChild(msgDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll abajo
+    if (toggleThemeBtn && body && themeIcon) {
+        toggleThemeBtn.addEventListener('click', () => {
+            const currentTheme = body.getAttribute('data-theme');
+            body.setAttribute('data-theme', currentTheme === 'dark' ? 'light' : 'dark');
+            themeIcon.className = currentTheme === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+        });
     }
 
-    // 2. Capturar y enviar el mensaje al backend via FETCH
-    async function sendMessage() {
-        const message = chatInput.value.trim();
-        if (!message) return;
-
-        // Mostrar mensaje del usuario en pantalla
-        appendMessage(message, true);
-        chatInput.value = '';
-
-        // Mostrar indicador de "Pensando..." provisional
-        const loadingDiv = document.createElement('div');
-        loadingDiv.className = 'text-slate-500 italic animate-pulse';
-        loadingDiv.innerText = 'IA analizando...';
-        chatMessages.appendChild(loadingDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-
-        try {
-            // Petición asincrónica HTTP POST a la ruta /chat de Flask
-            const response = await fetch('/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message })
-            });
-            
-            const data = await response.json();
-            loadingDiv.remove(); // Quitar el "Pensando..."
-
-            if (data.response) {
-                appendMessage(data.response);
-            } else {
-                appendMessage("Error operativo en el backend.");
-            }
-        } catch (error) {
-            loadingDiv.remove();
-            appendMessage("No se pudo conectar con el servidor.");
+    const editDeficit = document.getElementById('edit-deficit');
+    const panelInfoMeta = document.getElementById('panel-info-meta');
+    
+    function actualizarEtiquetaPanel() {
+        if(!editDeficit || !panelInfoMeta) return;
+        const val = parseInt(editDeficit.value) || 0;
+        if (val >= -100 && val <= 100) {
+            panelInfoMeta.innerHTML = 'Estado dinámico: <strong style="color: #eab308;">Recomposición (±100)</strong>';
+        } else if (val < -100) {
+            panelInfoMeta.innerHTML = 'Estado dinámico: <strong style="color: #ff6b4a;">Definición Activa</strong>';
+        } else {
+            panelInfoMeta.innerHTML = 'Estado dinámico: <strong style="color: #3b82f6;">Volumen Activo</strong>';
         }
     }
+    
+    if(editDeficit) {
+        editDeficit.addEventListener('input', actualizarEtiquetaPanel);
+        actualizarEtiquetaPanel();
+    }
 
-    // Eventos de envío (Botón y Tecla Enter)
-    chatSend.addEventListener('click', sendMessage);
-    chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMessage();
-    });
+    const btnGuardarKey = document.getElementById('btn-guardar-key');
+    const geminiKeyInput = document.getElementById('gemini-key-input');
 
-// Registrar el Service Worker para activar la PWA
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register("/static/sw.js")
-            .then(reg => console.log("Service Worker registrado con éxito", reg))
-            .catch(err => console.error("Error al registrar el Service Worker", err));
-    });
-}
+    if (btnGuardarKey && geminiKeyInput) {
+        btnGuardarKey.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const key = geminiKeyInput.value.trim();
+            if (!key) return;
+            btnGuardarKey.innerText = 'Validando...';
+            btnGuardarKey.disabled = true;
+
+            try {
+                const response = await fetch('/guardar_api_key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ gemini_api_key: key })
+                });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    const toast = document.getElementById('toast-notification');
+                    const toastMsg = document.getElementById('toast-message');
+                    if (toast && toastMsg) {
+                        toastMsg.innerText = "Créditos habilitados. ¡Empieza a chatear!";
+                        toast.style.background = "#22c55e";
+                        toast.style.transform = "translateY(0)";
+                        toast.style.opacity = "1";
+                    }
+                    setTimeout(() => { window.location.reload(); }, 2500);
+                }
+            } catch (error) { alert('Error de conexión.'); }
+            finally { btnGuardarKey.innerText = 'Activar Créditos'; btnGuardarKey.disabled = false; }
+        });
+    }
+
+    const btnActualizarObjetivos = document.getElementById('btn-actualizar-objetivos');
+    if (btnActualizarObjetivos) {
+        btnActualizarObjetivos.addEventListener('click', async () => {
+            const peso = document.getElementById('edit-peso').value;
+            const entrenamientos = document.getElementById('edit-entrenamientos').value;
+            const deficit = document.getElementById('edit-deficit').value;
+
+            btnActualizarObjetivos.innerText = "Sincronizando...";
+            btnActualizarObjetivos.disabled = true;
+
+            try {
+                const response = await fetch('/actualizar_objetivos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        peso: peso,
+                        entrenamientos_semanales: entrenamientos,
+                        deficit_calorico: deficit
+                    })
+                });
+                const data = await response.json();
+                const toast = document.getElementById('toast-notification');
+                const toastMsg = document.getElementById('toast-message');
+                
+                if (toast && toastMsg) {
+                    toastMsg.innerText = data.message;
+                    toast.style.background = data.status === 'success' ? "#3b82f6" : "#ef4444";
+                    toast.style.transform = "translateY(0)";
+                    toast.style.opacity = "1";
+                }
+                if (data.status === 'success') { setTimeout(() => { window.location.reload(); }, 2000); }
+            } catch (error) { alert("Error de red."); }
+            finally { btnActualizarObjetivos.innerText = "Reajustar Parámetros"; btnActualizarObjetivos.disabled = false; }
+        });
+    }
+});
 </script>
 </body>
 </html>
