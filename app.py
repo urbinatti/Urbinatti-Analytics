@@ -19,7 +19,7 @@ def obtener_datos_atleta_local(usuario_id):
         return {'peso': 70.0, 'entrenamientos': 5, 'objetivo': 'definicion', 'deficit': -500}
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT peso_kg, entrenamientos_semanales, deficit_objetivo_kcal FROM usuarios WHERE id = %s", (usuario_id,))
+        cursor.execute("SELECT peso_kg, entrenamientos_semanales, deficit_objetivo_kcal FROM usuarios WHERE id = ?", (usuario_id,))
         res = cursor.fetchone()
         if res:
             return {
@@ -42,8 +42,8 @@ def modificar_perfil_atleta_local(usuario_id, peso, entrenamientos, objetivo, de
     try:
         cursor.execute("""
             UPDATE usuarios 
-            SET peso_kg = %s, entrenamientos_semanales = %s, deficit_objetivo_kcal = %s 
-            WHERE id = %s
+            SET peso_kg = ?, entrenamientos_semanales = ?, deficit_objetivo_kcal = ? 
+            WHERE id = ?
         """, (peso, entrenamientos, deficit, usuario_id))
         conn.commit()
         return True
@@ -62,12 +62,12 @@ def obtener_totales_hoy_local(usuario_id):
     try:
         cursor.execute("""
             SELECT 
-                IFNULL(SUM(calorias), 0) as calorias, 
-                IFNULL(SUM(proteinas), 0) as proteinas, 
-                IFNULL(SUM(carbohidratos), 0) as carbohidratos, 
-                IFNULL(SUM(grasas), 0) as grasas 
+                COALESCE(SUM(calorias), 0) as calorias, 
+                COALESCE(SUM(proteinas), 0) as proteinas, 
+                COALESCE(SUM(carbohidratos), 0) as carbohidratos, 
+                COALESCE(SUM(grasas), 0) as grasas 
             FROM registros_comidas 
-            WHERE usuario_id = %s AND DATE(timestamp) = CURDATE()
+            WHERE usuario_id = ? AND DATE(timestamp) = DATE('now', 'localtime')
         """, (usuario_id,))
         return cursor.fetchone() or {'calorias': 0, 'proteinas': 0, 'carbohidratos': 0, 'grasas': 0}
     except Exception as e:
@@ -83,9 +83,9 @@ def obtener_registros_hoy_local(usuario_id):
     cursor = conn.cursor()
     try:
         cursor.execute("""
-            SELECT descripcion, calorias, proteinas, carbohidratos, grasas, DATE_FORMAT(timestamp, '%H:%i') as timestamp 
+            SELECT descripcion, calorias, proteinas, carbohidratos, grasas, strftime('%H:%M', timestamp) as timestamp 
             FROM registros_comidas 
-            WHERE usuario_id = %s AND DATE(timestamp) = CURDATE()
+            WHERE usuario_id = ? AND DATE(timestamp) = DATE('now', 'localtime')
             ORDER BY id DESC
         """, (usuario_id,))
         return cursor.fetchall() or []
@@ -110,7 +110,7 @@ def index():
     # 1. Consultar perfil de usuario directo de la DB
     conn = database.obtener_conexion()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM usuarios WHERE id = %s", (usuario_id,))
+    cursor.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id,))
     user_data = cursor.fetchone()
     
     if not user_data:
@@ -121,7 +121,7 @@ def index():
     # 2. Consultar registros de comidas de HOY
     cursor.execute("""
         SELECT * FROM registros_comidas 
-        WHERE usuario_id = %s AND DATE(timestamp) = CURDATE()
+        WHERE usuario_id = ? AND DATE(timestamp) = DATE('now', 'localtime')
         ORDER BY timestamp DESC
     """, (usuario_id,))
     registros = cursor.fetchall()
@@ -199,7 +199,7 @@ def registro():
     else:
         objetivo = "volumen"
     
-    resultado = database.registrar_nuevo_usuario(nombre, password, peso, entrenamientos, objective=objetivo, deficit=deficit)
+    resultado = database.registrar_nuevo_usuario(nombre, password, peso, entrenamientos, objetivo=objetivo, deficit=deficit)
     
     if resultado.get('status') == 'success':
         return redirect(url_for('login'))
@@ -272,8 +272,8 @@ Devuelve EXCLUSIVAMENTE este JSON:
                 nombre = item.get('alimento', 'Alimento')
                 kcal = int(item.get('calorias') or 0)
                 cursor.execute("""
-                    INSERT INTO registros_comidas (usuario_id, descripcion, calorias, proteinas, carbohidratos, grasas)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    INSERT INTO registros_comidas (usuario_id, descripcion, calorias, proteinas, carbohidratos, grasas, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
                 """, (usuario_id, nombre, kcal, int(item.get('proteinas') or 0), int(item.get('carbohidratos') or 0), int(item.get('grasas') or 0)))
                 total_kcal += kcal
                 
@@ -287,7 +287,7 @@ Devuelve EXCLUSIVAMENTE este JSON:
             patron = f"%{resultado_ia.get('patron_borrar')}%"
             conn = database.obtener_conexion()
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM registros_comidas WHERE usuario_id = %s AND descripcion LIKE %s", (usuario_id, patron))
+            cursor.execute("DELETE FROM registros_comidas WHERE usuario_id = ? AND descripcion LIKE ?", (usuario_id, patron))
             filas_borradas = cursor.rowcount
             conn.commit()
             cursor.close()
@@ -348,7 +348,7 @@ def guardar_api_key():
         session['usuario_api_key'] = api_key_real
         return jsonify({'status': 'success', 'message': 'API Key enlazada de forma correcta.'})
         
-    return jsonify({'status': 'error', 'message': 'Error interno al escribir en MySQL.'}), 500
+    return jsonify({'status': 'error', 'message': 'Error interno al escribir en la base de datos.'}), 500
 
 @app.route('/logout')
 def logout():
@@ -364,7 +364,7 @@ def borrar_comida(comida_id):
     usuario_id = session['usuario_id']
     conn = database.obtener_conexion()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM registros_comidas WHERE id = %s AND usuario_id = %s", (comida_id, usuario_id))
+    cursor.execute("DELETE FROM registros_comidas WHERE id = ? AND usuario_id = ?", (comida_id, usuario_id))
     conn.commit()
     cursor.close()
     conn.close()
