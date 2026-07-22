@@ -73,10 +73,11 @@ def index():
     cursor.close()
     conn.close()
     
-    calorias_totales = sum(int(r.get('calorias') or 0) for r in registros)
-    proteina_total = sum(int(r.get('proteinas') or 0) for r in registros)
-    carbs_totales = sum(int(r.get('carbohidratos') or 0) for r in registros)
-    grasas_totales = sum(int(r.get('grasas') or 0) for r in registros)
+    # Manejo ultra seguro de nulos para evitar errores de cantidades
+    calorias_totales = sum(float(r.get('calorias') or 0) for r in registros)
+    proteina_total = sum(float(r.get('proteinas') or 0) for r in registros)
+    carbs_totales = sum(float(r.get('carbohidratos') or 0) for r in registros)
+    grasas_totales = sum(float(r.get('grasas') or 0) for r in registros)
     
     peso = float(user_data.get('peso_kg') or 70.0)
     dias_gym = int(user_data.get('entrenamientos_semanales') or 5)
@@ -98,10 +99,10 @@ def index():
         'index.html',
         registros=registros,
         user_data=user_data,
-        calorias_totales=calorias_totales,
-        proteina_total=proteina_total,
-        carbs_totales=carbs_totales,
-        grasas_totales=grasas_totales,
+        calorias_totales=int(calorias_totales),
+        proteina_total=int(proteina_total),
+        carbs_totales=int(carbs_totales),
+        grasas_totales=int(grasas_totales),
         meta_calorias=meta_calorias,
         meta_proteina=meta_proteina,
         margen_calorias=margen_calorias,
@@ -167,14 +168,17 @@ def ingreso():
         user_data = obtener_datos_atleta_local(usuario_id)
         peso_actual = user_data.get('peso_kg', 70.0)
         
-        prompt_sistema = f"""Actúas como un software de nutrición y rendimiento deportivo. El usuario pesa {peso_actual}kg.
-REGLAS:
-1. Si el usuario describe comidas consumidas, desglosa CADA ALIMENTO en "alimentos".
-2. Si menciona huesos, réstalos del peso total.
-3. Si el usuario pide BORRAR o ELIMINAR una comida, clasifica tipo = "borrar" y en "patron_borrar" pon el texto o alimento a eliminar.
-4. Para consultas o saludos, tipo = "chat".
+        # PROMPT BLINDADO Y ROBUSTO
+        prompt_sistema = f"""Actúas como un software estricto de nutrición y rendimiento deportivo para un atleta que pesa {peso_actual}kg.
+Tu única tarea es analizar la frase del usuario y clasificarla de forma precisa en uno de estos tres tipos:
 
-Devuelve EXCLUSIVAMENTE este JSON:
+REGLAS DE CLASIFICACIÓN:
+1. "comida": Si el usuario describe alimentos o ingestas consumidas. Debes desglosar CADA ALIMENTO en la lista "alimentos" con sus calorías y macronutrientes estimados de forma coherente. Si menciona huesos o partes descartables, réstalos del peso real de la comida.
+2. "borrar": Si el usuario pide explícitamente eliminar o borrar un registro previo (ej: "borra el pollo", "elimina la milanesa"). En este caso, pon el patrón o nombre clave a buscar en "patron_borrar".
+3. "chat": Para cualquier otra cosa (saludos como "hola", charlas, preguntas generales, estados de ánimo o frases ambiguas donde no describa una comida clara).
+
+FORMATO DE SALIDA OBLIGATORIO:
+Devuelve EXCLUSIVAMENTE un objeto JSON válido, sin texto extra antes ni después, respetando exactamente esta estructura:
 {{
   "tipo": "comida" | "borrar" | "chat",
   "patron_borrar": "texto o nombre a borrar o null",
@@ -187,7 +191,7 @@ Devuelve EXCLUSIVAMENTE este JSON:
       "grasas": numero_entero
     }}
   ],
-  "respuesta_chat": "Respuesta si es chat o null"
+  "respuesta_chat": "Tu respuesta como asistente de nutrición si es chat, o null si es comida/borrar"
 }}"""
 
         url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key={user_api_key}"
@@ -197,31 +201,46 @@ Devuelve EXCLUSIVAMENTE este JSON:
         response = requests.post(url, headers=headers, json=payload)
         res_data = response.json()
         
+        if 'candidates' not in res_data or not res_data['candidates']:
+            session['respuesta_ia_chat'] = "⚠️ La IA no devolvió una respuesta válida. Intentá de nuevo."
+            return redirect(url_for('index'))
+
         texto_crudo = res_data['candidates'][0]['content']['parts'][0]['text']
         texto_limpio = texto_crudo.replace('```json', '').replace('```', '').strip()
-        resultado_ia = json.loads(texto_limpio)
+        
+        try:
+            resultado_ia = json.loads(texto_limpio)
+        except json.JSONDecodeError:
+            # Blindaje extra por si la IA responde con texto plano en vez de JSON puro
+            resultado_ia = {"tipo": "chat", "patron_borrar": None, "alimentos": [], "respuesta_chat": texto_crudo}
         
         tipo_intencion = resultado_ia.get('tipo')
         
+        # 1. CASO REGISTRO DE COMIDAS
         if tipo_intencion == 'comida' and resultado_ia.get('alimentos'):
             conn = database.obtener_conexion()
             cursor = conn.cursor()
             total_kcal = 0
             
             for item in resultado_ia.get('alimentos', []):
-                nombre = item.get('alimento', 'Alimento')
-                kcal = int(item.get('calorias') or 0)
+                nombre = str(item.get('alimento', 'Alimento'))
+                kcal = float(item.get('calorias') or 0)
+                prot = float(item.get('proteinas') or 0)
+                carb = float(item.get('carbohidratos') or 0)
+                grasa = float(item.get('grasas') or 0)
+                
                 cursor.execute("""
                     INSERT INTO registros_comidas (usuario_id, descripcion, calorias, proteinas, carbohidratos, grasas, timestamp)
                     VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
-                """, (usuario_id, nombre, kcal, int(item.get('proteinas') or 0), int(item.get('carbohidratos') or 0), int(item.get('grasas') or 0)))
+                """, (usuario_id, nombre, kcal, prot, carb, grasa))
                 total_kcal += kcal
                 
             conn.commit()
             cursor.close()
             conn.close()
-            session['respuesta_ia_chat'] = f"✅ Registrados {len(resultado_ia['alimentos'])} ítems desglosados ({total_kcal} kcal)."
+            session['respuesta_ia_chat'] = f"✅ Registrados {len(resultado_ia['alimentos'])} ítems desglosados ({int(total_kcal)} kcal)."
 
+        # 2. CASO BORRADO POR IA
         elif tipo_intencion == 'borrar' and resultado_ia.get('patron_borrar'):
             patron = f"%{resultado_ia.get('patron_borrar')}%"
             conn = database.obtener_conexion()
@@ -237,14 +256,16 @@ Devuelve EXCLUSIVAMENTE este JSON:
             else:
                 session['respuesta_ia_chat'] = f"⚠️ No se encontró ningún registro que coincida con '{resultado_ia.get('patron_borrar')}'."
 
+        # 3. CASO CHAT GENERAL O SALUDOS
         else:
-            session['respuesta_ia_chat'] = resultado_ia.get('respuesta_chat', 'Entendido.')
+            session['respuesta_ia_chat'] = resultado_ia.get('respuesta_chat', 'Entendido, ¿qué comiste o qué objetivo tenés presente hoy?')
 
         return redirect(url_for('index'))
         
     except Exception as e:
-        print(f"[ERROR INGESTA]: {e}")
-        return f"Error: {e}", 500
+        print(f"[ERROR INGESTA BLINDADA]: {e}")
+        session['respuesta_ia_chat'] = "⚠️ Ocurrió un error al procesar tu mensaje con la IA."
+        return redirect(url_for('index'))
 
 @app.route('/actualizar_objetivos', methods=['POST'])
 def actualizar_objetivos():
