@@ -5,32 +5,23 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 import database
 import requests
 
-
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(24))
-
-# =====================================================================
-# FUNCIONES LOCALES DE BASE DE DATOS
-# =====================================================================
 
 def obtener_datos_atleta_local(usuario_id):
     conn = database.obtener_conexion() 
     if not conn: 
-        return {'peso': 70.0, 'entrenamientos': 5, 'objetivo': 'definicion', 'deficit': -500}
+        return {'peso_kg': 70.0, 'entrenamientos_semanales': 5, 'deficit_objetivo_kcal': -500}
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT peso_kg, entrenamientos_semanales, deficit_objetivo_kcal FROM usuarios WHERE id = ?", (usuario_id,))
         res = cursor.fetchone()
         if res:
-            return {
-                'peso': res['peso_kg'],
-                'entrenamientos': res['entrenamientos_semanales'],
-                'deficit': res['deficit_objetivo_kcal']
-            }
-        return {'peso': 70.0, 'entrenamientos': 5, 'deficit': -500}
+            return dict(res)
+        return {'peso_kg': 70.0, 'entrenamientos_semanales': 5, 'deficit_objetivo_kcal': -500}
     except Exception as e:
         print(f"[LOCAL ERROR OBTENER ATLETA]: {e}")
-        return {'peso': 70.0, 'entrenamientos': 5, 'deficit': -500}
+        return {'peso_kg': 70.0, 'entrenamientos_semanales': 5, 'deficit_objetivo_kcal': -500}
     finally:
         cursor.close()
         conn.close()
@@ -54,52 +45,6 @@ def modificar_perfil_atleta_local(usuario_id, peso, entrenamientos, objetivo, de
         cursor.close()
         conn.close()
 
-def obtener_totales_hoy_local(usuario_id):
-    conn = database.obtener_conexion()
-    if not conn: 
-        return {'calorias': 0, 'proteinas': 0, 'carbohidratos': 0, 'grasas': 0}
-    cursor = conn.cursor()
-    try:
-        cursor.execute("""
-            SELECT 
-                COALESCE(SUM(calorias), 0) as calorias, 
-                COALESCE(SUM(proteinas), 0) as proteinas, 
-                COALESCE(SUM(carbohidratos), 0) as carbohidratos, 
-                COALESCE(SUM(grasas), 0) as grasas 
-            FROM registros_comidas 
-            WHERE usuario_id = ? AND DATE(timestamp) = DATE('now', 'localtime')
-        """, (usuario_id,))
-        return cursor.fetchone() or {'calorias': 0, 'proteinas': 0, 'carbohidratos': 0, 'grasas': 0}
-    except Exception as e:
-        print(f"[LOCAL TOTALS ERROR]: {e}")
-        return {'calorias': 0, 'proteinas': 0, 'carbohidratos': 0, 'grasas': 0}
-    finally:
-        cursor.close()
-        conn.close()
-
-def obtener_registros_hoy_local(usuario_id):
-    conn = database.obtener_conexion()
-    if not conn: return []
-    cursor = conn.cursor()
-    try:
-        cursor.execute("""
-            SELECT descripcion, calorias, proteinas, carbohidratos, grasas, strftime('%H:%M', timestamp) as timestamp 
-            FROM registros_comidas 
-            WHERE usuario_id = ? AND DATE(timestamp) = DATE('now', 'localtime')
-            ORDER BY id DESC
-        """, (usuario_id,))
-        return cursor.fetchall() or []
-    except Exception as e:
-        print(f"[LOCAL HISTORY ERROR]: {e}")
-        return []
-    finally:
-        cursor.close()
-        conn.close()
-
-# =====================================================================
-# RUTAS DE LA APLICACIÓN
-# =====================================================================
-
 @app.route('/')
 def index():
     if 'usuario_id' not in session:
@@ -107,7 +52,6 @@ def index():
         
     usuario_id = session['usuario_id']
     
-    # 1. Consultar perfil de usuario directo de la DB y convertirlo a diccionario seguro
     conn = database.obtener_conexion()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id,))
@@ -120,7 +64,6 @@ def index():
         
     user_data = dict(row_user)
         
-    # 2. Consultar registros de comidas de HOY y convertirlos a lista de diccionarios
     cursor.execute("""
         SELECT * FROM registros_comidas 
         WHERE usuario_id = ? AND DATE(timestamp) = DATE('now', 'localtime')
@@ -130,16 +73,14 @@ def index():
     cursor.close()
     conn.close()
     
-    # 3. Métricas y totales consumidos
     calorias_totales = sum(int(r.get('calorias') or 0) for r in registros)
     proteina_total = sum(int(r.get('proteinas') or 0) for r in registros)
     carbs_totales = sum(int(r.get('carbohidratos') or 0) for r in registros)
     grasas_totales = sum(int(r.get('grasas') or 0) for r in registros)
     
-    # 4. Cálculo metabólico seguro con diccionarios estándar
-    peso = float(user_data.get('peso_kg') or 0)
-    dias_gym = int(user_data.get('entrenamientos_semanales') or 0)
-    deficit_target = int(user_data.get('deficit_objetivo_kcal') or 0)
+    peso = float(user_data.get('peso_kg') or 70.0)
+    dias_gym = int(user_data.get('entrenamientos_semanales') or 5)
+    deficit_target = int(user_data.get('deficit_objetivo_kcal') or -500)
     
     if peso > 0:
         factor_actividad = 1.2 + (dias_gym * 0.07)
@@ -153,7 +94,6 @@ def index():
     margen_calorias = meta_calorias - calorias_totales
     margen_proteina = meta_proteina - proteina_total
 
-    # 5. Envío directo al template
     return render_template(
         'index.html',
         registros=registros,
@@ -167,7 +107,6 @@ def index():
         margen_calorias=margen_calorias,
         margen_proteina=margen_proteina
     )
-    
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -201,7 +140,7 @@ def registro():
     else:
         objetivo = "volumen"
     
-    resultado = database.registrar_nuevo_usuario(nombre, password, peso, entrenamientos, objetivo=objetivo, deficit=deficit)
+    resultado = database.registrar_nuevo_usuario(nombre, password, peso, entrenamientos, objetivo, deficit)
     
     if resultado.get('status') == 'success':
         return redirect(url_for('login'))
@@ -226,13 +165,13 @@ def ingreso():
 
     try:
         user_data = obtener_datos_atleta_local(usuario_id)
-        peso_actual = user_data.get('peso', 70.0)
+        peso_actual = user_data.get('peso_kg', 70.0)
         
         prompt_sistema = f"""Actúas como un software de nutrición y rendimiento deportivo. El usuario pesa {peso_actual}kg.
 REGLAS:
 1. Si el usuario describe comidas consumidas, desglosa CADA ALIMENTO en "alimentos".
 2. Si menciona huesos, réstalos del peso total.
-3. Si el usuario pide BORRAR o ELIMINAR una comida (ej: "borra el hola", "elimina la pata de pollo"), clasifica tipo = "borrar" y en "patron_borrar" pon el texto o alimento a eliminar.
+3. Si el usuario pide BORRAR o ELIMINAR una comida, clasifica tipo = "borrar" y en "patron_borrar" pon el texto o alimento a eliminar.
 4. Para consultas o saludos, tipo = "chat".
 
 Devuelve EXCLUSIVAMENTE este JSON:
@@ -264,7 +203,6 @@ Devuelve EXCLUSIVAMENTE este JSON:
         
         tipo_intencion = resultado_ia.get('tipo')
         
-        # 1. CASO REGISTRO DE COMIDAS MULTIPLES
         if tipo_intencion == 'comida' and resultado_ia.get('alimentos'):
             conn = database.obtener_conexion()
             cursor = conn.cursor()
@@ -284,7 +222,6 @@ Devuelve EXCLUSIVAMENTE este JSON:
             conn.close()
             session['respuesta_ia_chat'] = f"✅ Registrados {len(resultado_ia['alimentos'])} ítems desglosados ({total_kcal} kcal)."
 
-        # 2. CASO BORRADO POR IA
         elif tipo_intencion == 'borrar' and resultado_ia.get('patron_borrar'):
             patron = f"%{resultado_ia.get('patron_borrar')}%"
             conn = database.obtener_conexion()
@@ -300,7 +237,6 @@ Devuelve EXCLUSIVAMENTE este JSON:
             else:
                 session['respuesta_ia_chat'] = f"⚠️ No se encontró ningún registro que coincida con '{resultado_ia.get('patron_borrar')}'."
 
-        # 3. CASO CHAT GENERAL
         else:
             session['respuesta_ia_chat'] = resultado_ia.get('respuesta_chat', 'Entendido.')
 
@@ -357,7 +293,6 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# NUEVA RUTA PARA BORRADO MANUAL CON BOTÓN
 @app.route('/borrar_comida/<int:comida_id>', methods=['POST'])
 def borrar_comida(comida_id):
     if 'usuario_id' not in session:
@@ -374,8 +309,5 @@ def borrar_comida(comida_id):
     session['respuesta_ia_chat'] = "🗑️ Registro eliminado correctamente."
     return redirect(url_for('index'))
 
-# =====================================================================
-# ARRANQUE DEL SERVIDOR (SIEMPRE AL FINAL DEL ARCHIVO)
-# =====================================================================
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
