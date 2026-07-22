@@ -107,24 +107,26 @@ def index():
         
     usuario_id = session['usuario_id']
     
-    # 1. Consultar perfil de usuario directo de la DB
+    # 1. Consultar perfil de usuario directo de la DB y convertirlo a diccionario seguro
     conn = database.obtener_conexion()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id,))
-    user_data = cursor.fetchone()
+    row_user = cursor.fetchone()
     
-    if not user_data:
+    if not row_user:
         cursor.close()
         conn.close()
         return "Error: Usuario no encontrado.", 404
         
-    # 2. Consultar registros de comidas de HOY
+    user_data = dict(row_user)
+        
+    # 2. Consultar registros de comidas de HOY y convertirlos a lista de diccionarios
     cursor.execute("""
         SELECT * FROM registros_comidas 
         WHERE usuario_id = ? AND DATE(timestamp) = DATE('now', 'localtime')
         ORDER BY timestamp DESC
     """, (usuario_id,))
-    registros = cursor.fetchall()
+    registros = [dict(row) for row in cursor.fetchall()]
     cursor.close()
     conn.close()
     
@@ -134,7 +136,7 @@ def index():
     carbs_totales = sum(int(r.get('carbohidratos') or 0) for r in registros)
     grasas_totales = sum(int(r.get('grasas') or 0) for r in registros)
     
-    # 4. Cálculo metabólico exacto basado en las columnas reales de DB
+    # 4. Cálculo metabólico seguro con diccionarios estándar
     peso = float(user_data.get('peso_kg') or 0)
     dias_gym = int(user_data.get('entrenamientos_semanales') or 0)
     deficit_target = int(user_data.get('deficit_objetivo_kcal') or 0)
