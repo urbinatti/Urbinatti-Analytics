@@ -167,11 +167,11 @@ def ingreso():
         user_data = obtener_datos_atleta_local(usuario_id)
         peso_actual = user_data.get('peso_kg', 70.0)
         
-        # Sistema conversacional inteligente y estructurado con mapeo exacto a columnas reales
-        prompt_sistema = f"""Sos un asistente experto en nutrición y rendimiento deportivo, directo, inteligente y conversacional. El usuario pesa {peso_actual}kg.
-Tu tarea es responder de forma fluida a cualquier consulta o charla. 
+        # PROMPT NATURAL Y CONVERSACIONAL REAL (Sin respuestas robóticas)
+        prompt_sistema = f"""Sos un asistente experto en nutrición y rendimiento deportivo, inteligente, directo y conversacional (como un entrenador personal sincero). El usuario pesa {peso_actual}kg.
+Tu tarea es mantener una charla fluida, útil e inteligente con el usuario. Responde a sus dudas, pregúntale sobre su rutina o analiza lo que te diga con criterio técnico.
 
-Si el mensaje del usuario implica el registro o consumo de alimentos (ej: yogur, leche, miel, galletas, etc.), debes estimar sus macros y calorías de forma realista.
+Si el mensaje del usuario incluye el consumo de alimentos o comidas, debes estimar sus calorías y macronutrientes de forma realista para guardarlos.
 
 Devuelve tu respuesta en formato JSON estrictamente válido con esta estructura exacta:
 {{
@@ -185,10 +185,10 @@ Devuelve tu respuesta en formato JSON estrictamente válido con esta estructura 
       "grasas": 0.0
     }}
   ],
-  "respuesta_chat": "Tu respuesta conversacional, amigable, directa y útil hacia el usuario."
+  "respuesta_chat": "Tu respuesta conversacional completa, inteligente y directa hacia el usuario. NUNCA respondas con frases genéricas como 'recibido' o 'registrado'. Habla de forma natural y con contenido útil."
 }}
 
-Si el mensaje es puramente una pregunta, saludo o charla general sin consumo de alimentos, deja "alimentos": [] y responde de manera abierta y natural en "respuesta_chat"."""
+Si el mensaje es puramente una pregunta, saludo o charla general sin consumo de alimentos, deja "alimentos": [] y responde de manera abierta, natural y experta en "respuesta_chat"."""
 
         url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={user_api_key}"
         headers = {'Content-Type': 'application/json'}
@@ -198,7 +198,7 @@ Si el mensaje es puramente una pregunta, saludo o charla general sin consumo de 
         res_data = response.json()
         
         if 'candidates' not in res_data or not res_data['candidates']:
-            session['respuesta_ia_chat'] = f"Recibido: {descripcion}. ¿En qué te ayudo con tus macros hoy?"
+            session['respuesta_ia_chat'] = f"No pude conectar bien con la API en este segundo, pero te leí: '{descripcion}'."
             return redirect(url_for('index'))
 
         texto_crudo = res_data['candidates'][0]['content']['parts'][0]['text']
@@ -214,7 +214,7 @@ Si el mensaje es puramente una pregunta, saludo o charla general sin consumo de 
         except Exception:
             resultado_ia = {"alimentos": [], "respuesta_chat": texto_crudo}
         
-        # Inserción blindada usando las columnas reales de la tabla 'registros_comidas'
+        # Inserción automática en la base de datos si la IA detectó comidas
         alimentos = resultado_ia.get('alimentos', [])
         if alimentos and isinstance(alimentos, list):
             conn = database.obtener_conexion()
@@ -237,14 +237,13 @@ Si el mensaje es puramente una pregunta, saludo o charla general sin consumo de 
             cursor.close()
             conn.close()
 
-        session['respuesta_ia_chat'] = resultado_ia.get('respuesta_chat', '¡Procesado y guardado con éxito!')
+        session['respuesta_ia_chat'] = resultado_ia.get('respuesta_chat', texto_crudo)
         return redirect(url_for('index'))
         
     except Exception as e:
         print(f"[ERROR INGESTA]: {e}")
-        session['respuesta_ia_chat'] = f"Recibido: '{descripcion}'. Hubo un pequeño detalle al conectar con la API, pero tu mensaje fue leído."
+        session['respuesta_ia_chat'] = f"Error al procesar el mensaje: {str(e)}"
         return redirect(url_for('index'))
-
 @app.route('/actualizar_objetivos', methods=['POST'])
 def actualizar_objetivos():
     usuario_id = session.get('usuario_id')
