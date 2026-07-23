@@ -44,7 +44,6 @@ def modificar_perfil_atleta_local(usuario_id, peso, entrenamientos, objetivo, de
         cursor.close()
         conn.close()
 
-# FUNCIÓN NUEVA: Única fuente de la verdad para mantener todo sincronizado
 def obtener_totales_sincronizados(usuario_id):
     conn = database.obtener_conexion()
     cursor = conn.cursor()
@@ -222,7 +221,6 @@ def ingreso():
                     VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), ?)
                 """, (desc, p_gr, kcal, prot, carb, grasa, usuario_id))
                 
-                # Recuperamos el ID insertado para enviarlo al frontend y poder borrarlo en vivo
                 alimentos_procesados.append({
                     'id': cursor.lastrowid, 'descripcion': desc, 'calorias': kcal, 
                     'proteinas': prot, 'carbohidratos': carb, 'grasas': grasa, 'timestamp': 'Justo ahora'
@@ -231,7 +229,6 @@ def ingreso():
             cursor.close()
             conn.close()
 
-        # Obtenemos los totales actualizados post-inserción
         totales_sincronizados = obtener_totales_sincronizados(usuario_id)
 
         return jsonify({
@@ -243,13 +240,11 @@ def ingreso():
         
     except Exception as e:
         error_msg = str(e).lower()
-        # LIMPIEZA AUTOMÁTICA DE CLAVE REVOCADA
-        if 'api_key_invalid' in error_msg or 'api key not valid' in error_msg or '400' in error_msg:
+        if 'api_key_invalid' in error_msg or 'api key not valid' in error_msg or '400' in error_msg or '403' in error_msg:
             database.actualizar_gemini_key(usuario_id, "")
             session.pop('usuario_api_key', None)
-            return jsonify({'status': 'revoked', 'message': 'API Key revocada o inhabilitada por Google.'}), 401
+            return jsonify({'status': 'revoked', 'message': 'API Key revocada o inhabilitada.'}), 401
             
-        print(f"[ERROR CRITICO IA]: {str(e)}")
         return jsonify({'status': 'error', 'message': f'Error del servidor: {str(e)}'}), 500
 
 @app.route('/guardar_api_key', methods=['POST'])
@@ -265,12 +260,12 @@ def guardar_api_key():
         return jsonify({'status': 'error', 'message': 'La clave ingresada es demasiado corta para ser válida.'}), 400
         
     try:
-        # PING EN VIVO A GOOGLE: Si falla acá, no se guarda.
         genai.configure(api_key=api_key_real, transport='rest')
-        model = genai.GenerativeModel("gemini-1.5-flash") # Usamos un modelo liviano solo para el ping
-        model.generate_content("Responde ok", request_options={"timeout": 5.0})
+        model = genai.GenerativeModel("gemini-2.0-flash") 
+        model.generate_content("ok", request_options={"timeout": 10.0})
     except Exception as e:
-        return jsonify({'status': 'error', 'message': f'Error técnico: {str(e)}'}), 400
+        return jsonify({'status': 'error', 'message': f'La API Key es inválida o fue rechazada. Detalle: {str(e)}'}), 400
+
     exito = database.actualizar_gemini_key(usuario_id, api_key_real)
     if exito:
         session['usuario_api_key'] = api_key_real
@@ -291,7 +286,6 @@ def borrar_comida(comida_id):
     cursor.close()
     conn.close()
     
-    # Devolvemos los totales recalculados en vivo
     totales_sincronizados = obtener_totales_sincronizados(usuario_id)
     return jsonify({'status': 'success', 'totales': totales_sincronizados})
 
