@@ -113,17 +113,17 @@ def index():
         meta_proteina = int(peso * 2.0)
 
     return render_template(
-            'index.html',
-            registros=registros,
-            user_data=user_data,
-            calorias_totales=totales['calorias'],
-            proteina_total=totales['proteinas'],
-            carbs_totales=totales['carbohidratos'],
-            grasas_totales=totales['grasas'],
-            meta_calorias=meta_calorias,
-            meta_proteina=meta_proteina,
-            tiene_api_key=tiene_api_key
-        )
+        'index.html',
+        registros=registros,
+        user_data=user_data,
+        calorias_totales=totales['calorias'],
+        proteina_total=totales['proteinas'],
+        carbs_totales=totales['carbohidratos'],
+        grasas_totales=totales['grasas'],
+        meta_calorias=meta_calorias,
+        meta_proteina=meta_proteina,
+        tiene_api_key=tiene_api_key
+    )
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -198,8 +198,8 @@ def ingreso():
             alimentos: list[Alimento]
             respuesta_chat: str
 
-        # APUNTAMOS AL MODELO ESTABLE UNIVERSAL 1.5-FLASH-001
-        model = genai.GenerativeModel(model_name="gemini-1.5-flash-001", system_instruction=instruccion_sistema)
+        # USAMOS GEMINI-2.0-FLASH QUE ES EL MODELO OFICIAL ACTUAL
+        model = genai.GenerativeModel(model_name="gemini-2.0-flash", system_instruction=instruccion_sistema)
         response = model.generate_content(
             descripcion,
             generation_config=genai.GenerationConfig(response_mime_type="application/json", response_schema=RespuestaIA),
@@ -264,13 +264,13 @@ def guardar_api_key():
         
     try:
         genai.configure(api_key=api_key_real, transport='rest')
-        # PING TAMBIÉN CON EL MODELO ESTABLE UNIVERSAL
-        model = genai.GenerativeModel("gemini-1.5-flash-001") 
+        # PING CON GEMINI-2.0-FLASH
+        model = genai.GenerativeModel("gemini-2.0-flash") 
         model.generate_content("ok", request_options={"timeout": 10.0})
     except Exception as e:
         error_msg = str(e).lower()
         if '429' in error_msg or 'quota' in error_msg:
-             return jsonify({'status': 'error', 'message': 'La clave es real, pero tu cuenta agotó la cuota gratuita de Google.'}), 400
+             return jsonify({'status': 'error', 'message': 'La clave es real, pero tu cuenta agotó la cuota gratuita o requiere verificación en Google AI Studio.'}), 400
         return jsonify({'status': 'error', 'message': f'La API Key es inválida o fue rechazada. Detalle: {str(e)}'}), 400
 
     exito = database.actualizar_gemini_key(usuario_id, api_key_real)
