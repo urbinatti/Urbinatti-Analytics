@@ -118,6 +118,7 @@ def index():
         user_data=user_data,
         calorias_totales=totales['calorias'],
         proteina_total=totales['proteinas'],
+        carbs_totales=totales['carbs_totales'] if 'carbs_totales' in locals() else 0, # safeguards
         carbs_totales=totales['carbohidratos'],
         grasas_totales=totales['grasas'],
         meta_calorias=meta_calorias,
@@ -171,7 +172,6 @@ def ingreso():
     if not descripcion:
         return jsonify({'status': 'error', 'message': 'Mensaje vacío.'}), 400
         
-    # ELIMINAMOS LA CLAVE FANTASMA DEL SERVIDOR. AHORA ES ESTRICTO.
     user_api_key = session.get('usuario_api_key')
     
     if not user_api_key:
@@ -199,8 +199,8 @@ def ingreso():
             alimentos: list[Alimento]
             respuesta_chat: str
 
-        # USAMOS LATEST PARA ESQUIVAR EL ERROR 404
-        model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", system_instruction=instruccion_sistema)
+        # APUNTAMOS AL MODELO ESTABLE UNIVERSAL 1.5-FLASH-001
+        model = genai.GenerativeModel(model_name="gemini-1.5-flash-001", system_instruction=instruccion_sistema)
         response = model.generate_content(
             descripcion,
             generation_config=genai.GenerationConfig(response_mime_type="application/json", response_schema=RespuestaIA),
@@ -265,8 +265,8 @@ def guardar_api_key():
         
     try:
         genai.configure(api_key=api_key_real, transport='rest')
-        # USAMOS LATEST TAMBIÉN EN EL PING
-        model = genai.GenerativeModel("gemini-1.5-flash-latest") 
+        # PING TAMBIÉN CON EL MODELO ESTABLE UNIVERSAL
+        model = genai.GenerativeModel("gemini-1.5-flash-001") 
         model.generate_content("ok", request_options={"timeout": 10.0})
     except Exception as e:
         error_msg = str(e).lower()
