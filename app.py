@@ -3,8 +3,8 @@ import secrets
 import json
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 import database
-import google.generativeai as genai
-import typing_extensions as typing
+from google import genai
+from google.genai import types
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(24))
@@ -182,27 +182,18 @@ def ingreso():
         entrenamientos_cliente = user_data.get('entrenamientos_semanales', 3)
         objetivo_cliente = user_data.get('objetivo', 'mantenimiento')
         
-        genai.configure(api_key=user_api_key, transport='rest')
+        # NUEVO CLIENTE OFICIAL QUE SOPORTA CLAVES AQ.
+        client = genai.Client(api_key=user_api_key)
         
-        instruccion_sistema = f"Eres un asistente de nutrición y rendimiento deportivo objetivo y directo. El usuario actual pesa {peso_cliente}kg, entrena {entrenamientos_cliente} veces por semana y su objetivo es {objetivo_cliente}. Tu tarea es mantener una charla fluida y útil. Si el usuario menciona que consumió alimentos, estima sus macronutrientes y calorías con precisión. Si es charla general, responde natural y deja la lista vacía."
+        instruccion_sistema = f"Eres un asistente de nutrición y rendimiento deportivo objetivo y directo. El usuario actual pesa {peso_cliente}kg, entrena {entrenamientos_cliente} veces por semana y su objetivo es {objetivo_cliente}. Tu tarea es mantener una charla fluida y útil. Si el usuario menciona que consumió alimentos, estima sus macronutrientes y calorías con precisión en formato JSON con las claves 'alimentos' (lista con descripcion, peso, calorias, proteinas, carbohidratos, grasas) y 'respuesta_chat' (texto). Si es charla general, deja la lista vacía."
 
-        class Alimento(typing.TypedDict):
-            descripcion: str
-            peso: float
-            calorias: float
-            proteinas: float
-            carbohidratos: float
-            grasas: float
-
-        class RespuestaIA(typing.TypedDict):
-            alimentos: list[Alimento]
-            respuesta_chat: str
-
-        model = genai.GenerativeModel(model_name="gemini-2.0-flash", system_instruction=instruccion_sistema)
-        response = model.generate_content(
-            descripcion,
-            generation_config=genai.GenerationConfig(response_mime_type="application/json", response_schema=RespuestaIA),
-            request_options={"timeout": 15.0}
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=descripcion,
+            config=types.GenerateContentConfig(
+                system_instruction=instruccion_sistema,
+                response_mime_type="application/json"
+            )
         )
         
         resultado_ia = json.loads(response.text)
@@ -241,8 +232,8 @@ def ingreso():
     except Exception as e:
         error_msg = str(e).lower()
         if '429' in error_msg or 'quota' in error_msg:
-            return jsonify({'status': 'quota', 'message': 'Límite de cuota excedido en el proyecto GCP.'}), 429
-        elif 'api_key_invalid' in error_msg or 'api key not valid' in error_msg or '400' in error_msg or '403' in error_msg:
+            return jsonify({'status': 'quota', 'message': 'Límite de cuota excedido.'}), 429
+        elif 'api_key_invalid' in error_msg or 'api key not valid' in error_msg or '400' in error_msg or '403' in error_msg or 'unauthorized' in error_msg:
             database.actualizar_gemini_key(usuario_id, "")
             session.pop('usuario_api_key', None)
             return jsonify({'status': 'revoked', 'message': 'API Key revocada o inhabilitada.'}), 401
@@ -262,13 +253,16 @@ def guardar_api_key():
         return jsonify({'status': 'error', 'message': 'La clave ingresada es demasiado corta para ser válida.'}), 400
         
     try:
-        genai.configure(api_key=api_key_real, transport='rest')
-        model = genai.GenerativeModel("gemini-2.0-flash") 
-        model.generate_content("ok", request_options={"timeout": 10.0})
+        # VALIDACIÓN CON EL NUEVO SDK CLIENT
+        client = genai.Client(api_key=api_key_real)
+        client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents="ok"
+        )
     except Exception as e:
         error_msg = str(e).lower()
         if '429' in error_msg or 'quota' in error_msg:
-             return jsonify({'status': 'error', 'message': 'La clave es real, pero el proyecto GCP asociado tiene cuota en 0.'}), 400
+             return jsonify({'status': 'error', 'message': 'La clave es real, pero superó el límite de uso.'}), 400
         return jsonify({'status': 'error', 'message': f'La API Key es inválida o fue rechazada. Detalle: {str(e)}'}), 400
 
     exito = database.actualizar_gemini_key(usuario_id, api_key_real)
