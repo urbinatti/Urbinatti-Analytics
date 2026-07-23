@@ -34,7 +34,7 @@
         body { background-color: var(--bg-principal); color: var(--texto); padding: 0; letter-spacing: -0.3px; }
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
 
-        .card { background: var(--bg-card); border: 1px solid var(--borde); border-radius: 16px; padding: 24px; margin-bottom: 25px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .card { background: var(--bg-card); border: 1px solid var(--borde); border-radius: 16px; padding: 24px; margin-bottom: 25px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); position: relative;}
 
         input, select, textarea { background: var(--bg-principal); border: 1px solid var(--borde); color: var(--texto); padding: 12px 16px; border-radius: 8px; outline: none; font-size: 14px; }
         input:focus, select:focus, textarea:focus { border-color: var(--primario); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
@@ -44,20 +44,35 @@
         .btn:active { transform: scale(0.98); }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        .item-historial { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--borde); }
+        .item-historial { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--borde); transition: opacity 0.3s ease; }
         .item-historial:last-child { border-bottom: none; }
+
+        /* DESTELLO VERDE PARA ACTUALIZACIONES EN VIVO */
+        @keyframes flashGreen {
+            0% { background-color: transparent; }
+            50% { background-color: rgba(34, 197, 94, 0.25); }
+            100% { background-color: transparent; }
+        }
+        .flash-update { animation: flashGreen 0.8s ease-out; border-radius: 8px; }
+        
+        /* CHAT WHATSAPP STYLE */
+        .chat-burbuja { padding: 10px 14px; border-radius: 12px; font-size: 13.5px; line-height: 1.4; max-width: 85%; margin-bottom: 12px; word-wrap: break-word; }
+        .chat-user { background: var(--primario); color: white; float: right; clear: both; border-bottom-right-radius: 2px; }
+        .chat-ia { background: rgba(255,255,255,0.08); float: left; clear: both; border-bottom-left-radius: 2px; color: var(--texto); }
+        [data-theme="light"] .chat-ia { background: #e2e8f0; }
+        
+        /* Ocultar elementos dinámicamente */
+        .hidden { display: none !important; }
     </style>
 </head>
 <body data-theme="dark">
 
-<!-- TOAST NOTIFICATION -->
 <div id="toast-notification" style="position: fixed; top: 20px; right: 20px; background: #22c55e; color: #ffffff; padding: 16px 24px; border-radius: 12px; font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 10px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); transform: translateY(-100px); opacity: 0; transition: transform 0.3s ease, opacity 0.3s ease; z-index: 9999;">
-    <i class="fa-solid fa-circle-check"></i> <span id="toast-message">Configuración guardada.</span>
+    <i class="fa-solid fa-circle-check" id="toast-icon"></i> <span id="toast-message">Notificación</span>
 </div>
 
 <div class="container">
     
-    <!-- HEADER -->
     <header style="display: flex; justify-content: space-between; align-items: center; padding: 20px 0; margin-bottom: 30px; border-bottom: 1px solid var(--borde);">
         <div style="display: flex; align-items: center; gap: 12px;">
             <div style="background: var(--acento-energia); color: #fff; font-weight: 900; font-size: 16px; width: 36px; height: 36px; display: flex; justify-content: center; align-items: center; border-radius: 8px;">JU</div>
@@ -68,102 +83,78 @@
                 <i class="fa-solid fa-sun" id="theme-icon"></i>
             </button>
             <p style="color: var(--texto-mutated); font-size: 13px;">
-                Atleta: <strong style="color: var(--texto);">{{ usuario_nombre }}</strong> | 
+                Atleta: <strong style="color: var(--texto);">{{ user_data.nombre }}</strong> | 
                 <a href="/logout" style="color: var(--rojo); text-decoration: none; margin-left: 10px; font-weight: bold;">Salir</a>
             </p>
         </div>
     </header>
 
-    <!-- KEY BIND -->
-    <div class="card" style="border-left: 4px solid var(--primario);">
+    <!-- SECCIÓN API KEY (Se oculta sola con JS si ya tenés clave válida) -->
+    <div id="api-key-section" class="card {% if tiene_api_key %}hidden{% endif %}" style="border-left: 4px solid var(--primario);">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
             <div style="max-width: 650px; flex-grow: 1;">
                 <h4 style="font-size: 16px; font-weight: 700; margin-bottom: 4px;">Vincular tu Motor de IA (Gemini)</h4>
                 <p style="color: var(--texto-mutated); font-size: 13px;">Inyectá tu credencial de ejecución para activar el asistente inteligente.</p>
                 <div style="display: flex; gap: 10px; margin-top: 15px;">
-                    <input type="password" id="gemini-key-input" placeholder="Pegá tu API Key acá..." style="flex-grow: 1;" value="{{ session.get('usuario_api_key') or '' }}">
+                    <input type="password" id="gemini-key-input" placeholder="Pegá tu API Key acá..." style="flex-grow: 1;">
                     <button type="button" class="btn" id="btn-guardar-key" style="white-space: nowrap;">Activar Créditos</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- CARDS DE METRICAS -->
+    <!-- CARDS DE METRICAS (IDs agregados para actualizarlas en vivo con JS) -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 25px;">
-        <div class="card" style="margin-bottom: 0;">
+        <div class="card" id="card-calorias" style="margin-bottom: 0;">
             <span style="font-size: 12px; text-transform: uppercase; color: var(--texto-mutated); font-weight: bold;">Calorías Totales</span>
-            <h2 style="font-size: 32px; font-weight: 800; margin-top: 5px; color: var(--primario);">{{ totales.calorias if totales is defined else calorias_totales }} <span style="font-size: 14px; color: var(--texto-mutated); font-weight: 400;">kcal</span></h2>
+            <h2 style="font-size: 32px; font-weight: 800; margin-top: 5px; color: var(--primario);"><span id="val-calorias">{{ calorias_totales }}</span> <span style="font-size: 14px; color: var(--texto-mutated); font-weight: 400;">kcal</span></h2>
         </div>
-        <div class="card" style="margin-bottom: 0;">
+        <div class="card" id="card-proteinas" style="margin-bottom: 0;">
             <span style="font-size: 12px; text-transform: uppercase; color: var(--texto-mutated); font-weight: bold;">Proteína Ingerida</span>
-            <h2 style="font-size: 32px; font-weight: 800; margin-top: 5px; color: var(--acento-energia);">{{ totales.proteinas if totales is defined else proteina_total }} <span style="font-size: 14px; color: var(--texto-mutated); font-weight: 400;">g</span></h2>
+            <h2 style="font-size: 32px; font-weight: 800; margin-top: 5px; color: var(--acento-energia);"><span id="val-proteinas">{{ proteina_total }}</span> <span style="font-size: 14px; color: var(--texto-mutated); font-weight: 400;">g</span></h2>
         </div>
-        <div class="card" style="margin-bottom: 0;">
+        <div class="card" id="card-carbosgrasas" style="margin-bottom: 0;">
             <span style="font-size: 12px; text-transform: uppercase; color: var(--texto-mutated); font-weight: bold;">Carbohidratos / Grasas</span>
-            <h3 style="font-size: 22px; font-weight: 700; margin-top: 12px;">{{ totales.carbohidratos if totales is defined else carbs_totales }}g <span style="font-size: 14px; color: var(--texto-mutated);">CH</span> / {{ totales.grasas if totales is defined else grasas_totales }}g <span style="font-size: 14px; color: var(--texto-mutated);">G</span></h3>
+            <h3 style="font-size: 22px; font-weight: 700; margin-top: 12px;"><span id="val-carbohidratos">{{ carbs_totales }}</span>g <span style="font-size: 14px; color: var(--texto-mutated);">CH</span> / <span id="val-grasas">{{ grasas_totales }}</span>g <span style="font-size: 14px; color: var(--texto-mutated);">G</span></h3>
         </div>
     </div>
 
-    <!-- MAIN BODY GRID -->
     <div class="grid-main" style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 25px;">
         
         <div>
-            <!-- CHAT / ASISTENTE Y REGISTRO -->
-            <div class="card">
-                <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 15px;">💬 Asistente & Registro con IA</h3>
+            <!-- CHAT WHATSAPP -->
+            <div class="card" id="chat-container">
+                <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 15px;">💬 Asistente & Registro</h3>
                 
-                {% if tiene_api_key %}
-                    <!-- ÁREA DE HISTORIAL DE CHAT DE LA SESIÓN -->
-                    <div style="height: 180px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 12px; margin-bottom: 15px;">
-                        {% if session.get('respuesta_ia_chat') %}
-                            <div style="margin-bottom: 10px; text-align: right;">
-                                <span style="display: inline-block; background: var(--primario); color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 13px;">
-                                    {{ session.get('ultimo_mensaje_usuario', '') }}
-                                </span>
-                            </div>
-                            <div style="margin-bottom: 10px; text-align: left;">
-                                <span style="display: inline-block; background: rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 8px; font-size: 13px; line-height: 1.4;">
-                                    🤖 {{ session.get('respuesta_ia_chat') }}
-                                </span>
-                            </div>
-                        {% else %}
-                            <p style="color: var(--texto-mutated); font-size: 13px; text-align: center; margin-top: 60px;">
-                                Escribí un mensaje de chat o decime qué comiste/entrenaste para registrarlo.
-                            </p>
-                        {% endif %}
+                <!-- PANTALLA DE BLOQUEO (Oculta por defecto, se muestra si revocan la key) -->
+                <div id="chat-bloqueado" class="hidden" style="text-align: center; padding: 30px 20px; border: 1px dashed var(--borde); border-radius: 10px; background-color: rgba(0,0,0,0.1);">
+                    <i class="fa-solid fa-lock" style="font-size: 32px; color: var(--texto-mutated); margin-bottom: 15px;"></i>
+                    <h4 style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">Asistente Bloqueado</h4>
+                    <p style="font-size: 14px; color: var(--texto-mutated); margin-bottom: 25px;">API Key revocada o ausente. Generá una nueva en Google Studio y pegala arriba.</p>
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" class="btn"><i class="fa-solid fa-key"></i> Google AI Studio</a>
+                </div>
+
+                <!-- ZONA DE CHAT ACTIVA -->
+                <div id="chat-activo" class="{% if not tiene_api_key %}hidden{% endif %}">
+                    <div id="historial-chat" style="height: 250px; overflow-y: auto; background: rgba(0,0,0,0.15); border-radius: 8px; padding: 15px; margin-bottom: 15px; border: 1px solid var(--borde);">
+                        <!-- MENSAJE INICIAL ESTÁTICO -->
+                        <div class="chat-burbuja chat-ia">🤖 Hola {{ user_data.nombre }}. Escribime qué comiste o consultame lo que necesites.</div>
                     </div>
 
-                    <!-- FORMULARIO DE ENVÍO -->
-                    <form action="/ingreso" method="POST" style="display: flex; gap: 10px;">
-                        <input type="text" name="descripcion" placeholder="Escribí una consulta o registro..." required style="flex: 1; padding: 10px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--texto);" autocomplete="off">
-                        <button type="submit" class="btn"><i class="fa-solid fa-paper-plane"></i></button>
+                    <form id="form-chat" style="display: flex; gap: 10px;">
+                        <input type="text" id="input-chat" placeholder="Ej: Comí 200g de pollo..." required style="flex: 1;" autocomplete="off">
+                        <button type="submit" class="btn" id="btn-enviar-chat"><i class="fa-solid fa-paper-plane"></i></button>
                     </form>
-                
-                {% else %}
-                    <!-- SI NO TIENE API KEY: Ocultamos el chat y pedimos que la active -->
-                    <div style="text-align: center; padding: 30px 20px; border: 1px dashed var(--borde); border-radius: 10px; background-color: rgba(0,0,0,0.1);">
-                        <i class="fa-solid fa-lock" style="font-size: 32px; color: var(--texto-mutated); margin-bottom: 15px;"></i>
-                        <h4 style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">Asistente Bloqueado</h4>
-                        <p style="font-size: 14px; color: var(--texto-mutated); margin-bottom: 25px; line-height: 1.5;">Para desbloquear el chat inteligente y el registro automático de alimentos, necesitas vincular tu API Key gratuita de Google.</p>
-                        
-                        <a href="https://aistudio.google.com/app/apikey" target="_blank" class="btn" style="text-decoration: none; display: inline-flex; width: 100%; max-width: 250px; background: var(--primario);">
-                            <i class="fa-solid fa-key"></i> Obtener API Key
-                        </a>
-                        
-                        <p style="font-size: 12px; color: var(--texto-mutated); margin-top: 20px;">
-                            Copiá la clave generada y pegala en el panel superior para activar tus créditos al instante.
-                        </p>
-                    </div>
-                {% endif %}
+                </div>
             </div>
 
             <!-- HISTORIAL DE REGISTROS -->
             <div class="card">
-                <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 15px;">Historial de Registros de Hoy</h3>
-                <div class="lista-historial">
+                <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 15px;">Historial de Hoy</h3>
+                <div id="lista-registros" class="lista-historial">
                     {% if registros %}
                         {% for reg in registros %}
-                            <div class="item-historial" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div class="item-historial" id="reg-{{ reg.id }}">
                                 <div>
                                     <p style="font-size: 14px; font-weight: 600; margin: 0;">{{ reg.descripcion }}</p>
                                     <span style="font-size: 12px; color: var(--texto-mutated);">{{ reg.timestamp }}</span>
@@ -173,176 +164,228 @@
                                         <span style="font-size: 14px; font-weight: bold; color: var(--primario);">{{ reg.calorias }} kcal</span>
                                         <p style="font-size: 11px; color: var(--texto-mutated); margin: 0;">P: {{ reg.proteinas }}g | C: {{ reg.carbohidratos }}g | G: {{ reg.grasas }}g</p>
                                     </div>
-                                    <!-- BOTÓN ELIMINAR -->
-                                    <form action="/borrar_comida/{{ reg.id }}" method="POST" style="margin: 0;">
-                                        <button type="submit" style="background: none; border: none; color: var(--rojo); cursor: pointer; padding: 4px; transition: transform 0.2s;" title="Eliminar registro" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">
-                                            <i class="fa-solid fa-trash"></i>
-                                        </button>
-                                    </form>
+                                    <button class="btn-borrar" data-id="{{ reg.id }}" style="background: none; border: none; color: var(--rojo); cursor: pointer; padding: 4px;"><i class="fa-solid fa-trash"></i></button>
                                 </div>
                             </div>
                         {% endfor %}
                     {% else %}
-                        <p style="color: var(--texto-mutated); font-size: 14px; text-align: center; padding: 20px 0;">No cargaste comidas o entrenamientos todavía hoy.</p>
+                        <p id="msg-vacio" style="color: var(--texto-mutated); font-size: 14px; text-align: center; padding: 20px 0;">No cargaste comidas hoy.</p>
                     {% endif %}
                 </div>
             </div>
         </div>
         
-
-        <!-- RIGHT SIDE PANEL -->
+        <!-- PANEL DERECHO (Sin cambios, solo para Ajustes) -->
         <div>
-            <div class="card" style="background: linear-gradient(180deg, var(--bg-card) 0%, rgba(59, 130, 246, 0.03) 100%);">
-                <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px;"><i class="fa-solid fa-dumbbell" style="color: var(--acento-energia);"></i> Status del Entrenador</h3>
-                <p style="color: var(--texto-mutated); font-size: 13px; line-height: 1.5;">
-                    Meta de Balance: 
-                    {% set def_val = user_data.deficit_objetivo_kcal if user_data else -500 %}
-                    {% if def_val >= -100 and def_val <= 100 %}
-                        <strong style="color: #eab308;">Recomposición Corporal ({{ def_val }} kcal)</strong>
-                    {% elif def_val < -100 %}
-                        <strong style="color: #ff6b4a;">Definición Estricta ({{ def_val }} kcal)</strong>
-                    {% else %}
-                        <strong style="color: #3b82f6;">Volumen Muscular (+{{ def_val }} kcal)</strong>
-                    {% endif %}
-                </p>
-            </div>
-
             <div class="card">
                 <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 12px;"><i class="fa-solid fa-sliders" style="color: var(--primario);"></i> Ajustar Variables</h3>
-                <p style="color: var(--texto-mutated); font-size: 13px; margin-bottom: 15px;">Modificá tus variables metabólicas de forma directa.</p>
-                
                 <div style="display: flex; flex-direction: column; gap: 14px;">
                     <div style="display: flex; gap: 10px;">
                         <div style="flex: 1;">
                             <label style="font-size: 11px; font-weight: bold; color: var(--texto-mutated);">Peso (kg)</label>
-                            <input type="number" id="edit-peso" step="0.1" value="{{ user_data.peso_kg if user_data else 70.0 }}" style="width: 100%; margin-top: 4px;">
+                            <input type="number" id="edit-peso" step="0.1" value="{{ user_data.peso_kg }}" style="width: 100%; margin-top: 4px;">
                         </div>
                         <div style="flex: 1;">
                             <label style="font-size: 11px; font-weight: bold; color: var(--texto-mutated);">Gym (Días)</label>
                             <select id="edit-entrenamientos" style="width: 100%; margin-top: 4px;">
-                                <option value="3" {% if user_data and user_data.entrenamientos_semanales == 3 %}selected{% endif %}>3 días</option>
-                                <option value="4" {% if user_data and user_data.entrenamientos_semanales == 4 %}selected{% endif %}>4 días</option>
-                                <option value="5" {% if user_data and user_data.entrenamientos_semanales == 5 or not user_data %}selected{% endif %}>5 días</option>
-                                <option value="6" {% if user_data and user_data.entrenamientos_semanales == 6 %}selected{% endif %}>6 días</option>
+                                <option value="3" {% if user_data.entrenamientos_semanales == 3 %}selected{% endif %}>3 días</option>
+                                <option value="5" {% if user_data.entrenamientos_semanales == 5 %}selected{% endif %}>5 días</option>
+                                <option value="6" {% if user_data.entrenamientos_semanales == 6 %}selected{% endif %}>6 días</option>
                             </select>
                         </div>
                     </div>
-
                     <div>
-                        <label style="font-size: 11px; font-weight: bold; color: var(--texto-mutated);">Balance Calórico Neto (kcal/día)</label>
-                        <input type="number" id="edit-deficit" value="{{ user_data.deficit_objetivo_kcal if user_data else -500 }}" placeholder="Negativo = Def, Positivo = Vol" style="width: 100%; margin-top: 4px;">
-                        <span class="badge-info" id="panel-info-meta" style="font-size: 12px; margin-top: 6px; display: block;"></span>
+                        <label style="font-size: 11px; font-weight: bold; color: var(--texto-mutated);">Deficit Calórico</label>
+                        <input type="number" id="edit-deficit" value="{{ user_data.deficit_objetivo_kcal }}" style="width: 100%; margin-top: 4px;">
                     </div>
-
-                    <button class="btn" id="btn-actualizar-objetivos" style="width: 100%; background: var(--primario-dark);">Reajustar Parámetros</button>
+                    <button class="btn" id="btn-actualizar-objetivos" style="width: 100%;">Reajustar Parámetros</button>
                 </div>
             </div>
-
         </div>
     </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // 1. TEMA CLARO/OSCURO
     const toggleThemeBtn = document.getElementById('toggle-theme-btn');
     const body = document.body;
-    const themeIcon = document.getElementById('theme-icon');
-
-    if (toggleThemeBtn && body && themeIcon) {
+    if (toggleThemeBtn) {
         toggleThemeBtn.addEventListener('click', () => {
             const currentTheme = body.getAttribute('data-theme');
             body.setAttribute('data-theme', currentTheme === 'dark' ? 'light' : 'dark');
-            themeIcon.className = currentTheme === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+            document.getElementById('theme-icon').className = currentTheme === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
         });
     }
 
-    const editDeficit = document.getElementById('edit-deficit');
-    const panelInfoMeta = document.getElementById('panel-info-meta');
-    
-    function actualizarEtiquetaPanel() {
-        if(!editDeficit || !panelInfoMeta) return;
-        const val = parseInt(editDeficit.value) || 0;
-        if (val >= -100 && val <= 100) {
-            panelInfoMeta.innerHTML = 'Estado dinámico: <strong style="color: #eab308;">Recomposición (±100)</strong>';
-        } else if (val < -100) {
-            panelInfoMeta.innerHTML = 'Estado dinámico: <strong style="color: #ff6b4a;">Definición Activa</strong>';
-        } else {
-            panelInfoMeta.innerHTML = 'Estado dinámico: <strong style="color: #3b82f6;">Volumen Activo</strong>';
-        }
-    }
-    
-    if(editDeficit) {
-        editDeficit.addEventListener('input', actualizarEtiquetaPanel);
-        actualizarEtiquetaPanel();
+    // FUNCIÓN PARA ACTUALIZAR MACROS Y HACER EL DESTELLO VERDE
+    function actualizarMacros(totales) {
+        document.getElementById('val-calorias').innerText = totales.calorias;
+        document.getElementById('val-proteinas').innerText = totales.proteinas;
+        document.getElementById('val-carbohidratos').innerText = totales.carbohidratos;
+        document.getElementById('val-grasas').innerText = totales.grasas;
+
+        const cards = ['card-calorias', 'card-proteinas', 'card-carbosgrasas'];
+        cards.forEach(id => {
+            const el = document.getElementById(id);
+            el.classList.remove('flash-update');
+            void el.offsetWidth; // Trigger reflow
+            el.classList.add('flash-update');
+        });
     }
 
+    function mostrarToast(mensaje, error = false) {
+        const t = document.getElementById('toast-notification');
+        document.getElementById('toast-message').innerText = mensaje;
+        document.getElementById('toast-icon').className = error ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-circle-check';
+        t.style.background = error ? '#ef4444' : '#22c55e';
+        t.style.transform = 'translateY(0)';
+        t.style.opacity = '1';
+        setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(-100px)'; }, 3000);
+    }
+
+    // 2. ACTIVAR API KEY EN VIVO
     const btnGuardarKey = document.getElementById('btn-guardar-key');
-    const geminiKeyInput = document.getElementById('gemini-key-input');
-
-    if (btnGuardarKey && geminiKeyInput) {
-        btnGuardarKey.addEventListener('click', async (e) => {
-            e.preventDefault();
-            const key = geminiKeyInput.value.trim();
+    if (btnGuardarKey) {
+        btnGuardarKey.addEventListener('click', async () => {
+            const key = document.getElementById('gemini-key-input').value.trim();
             if (!key) return;
-            btnGuardarKey.innerText = 'Validando...';
-            btnGuardarKey.disabled = true;
-
+            btnGuardarKey.innerText = 'Validando en Google...';
+            
             try {
-                const response = await fetch('/guardar_api_key', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ gemini_api_key: key })
+                const res = await fetch('/guardar_api_key', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({gemini_api_key: key})
                 });
-                const data = await response.json();
+                const data = await res.json();
                 if (data.status === 'success') {
-                    const toast = document.getElementById('toast-notification');
-                    const toastMsg = document.getElementById('toast-message');
-                    if (toast && toastMsg) {
-                        toastMsg.innerText = "Créditos habilitados. ¡Empieza a chatear!";
-                        toast.style.background = "#22c55e";
-                        toast.style.transform = "translateY(0)";
-                        toast.style.opacity = "1";
-                    }
-                    setTimeout(() => { window.location.reload(); }, 2500);
+                    mostrarToast("API Key validada con éxito.");
+                    // DESAPARECE LA SECCIÓN SIN RECARGAR
+                    document.getElementById('api-key-section').classList.add('hidden');
+                    document.getElementById('chat-bloqueado').classList.add('hidden');
+                    document.getElementById('chat-activo').classList.remove('hidden');
+                } else {
+                    mostrarToast(data.message, true);
                 }
-            } catch (error) { alert('Error de conexión.'); }
-            finally { btnGuardarKey.innerText = 'Activar Créditos'; btnGuardarKey.disabled = false; }
+            } catch (e) { mostrarToast("Error de conexión", true); }
+            finally { btnGuardarKey.innerText = 'Activar Créditos'; }
         });
     }
 
-    const btnActualizarObjetivos = document.getElementById('btn-actualizar-objetivos');
-    if (btnActualizarObjetivos) {
-        btnActualizarObjetivos.addEventListener('click', async () => {
-            const peso = document.getElementById('edit-peso').value;
-            const entrenamientos = document.getElementById('edit-entrenamientos').value;
-            const deficit = document.getElementById('edit-deficit').value;
-
-            btnActualizarObjetivos.innerText = "Sincronizando...";
-            btnActualizarObjetivos.disabled = true;
-
+    // 3. CHAT WHATSAPP Y REGISTRO EN VIVO
+    const formChat = document.getElementById('form-chat');
+    const historialChat = document.getElementById('historial-chat');
+    
+    if (formChat) {
+        formChat.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('input-chat');
+            const texto = input.value.trim();
+            if(!texto) return;
+            
+            input.value = '';
+            
+            // Agregar burbuja del usuario
+            historialChat.innerHTML += `<div class="chat-burbuja chat-user">${texto}</div>`;
+            const cargandoId = 'cargando-' + Date.now();
+            historialChat.innerHTML += `<div id="${cargandoId}" class="chat-burbuja chat-ia" style="opacity: 0.5;"><i>Escribiendo...</i></div>`;
+            historialChat.scrollTop = historialChat.scrollHeight; // Auto scroll abajo
+            
             try {
-                const response = await fetch('/actualizar_objetivos', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        peso: peso,
-                        entrenamientos_semanales: entrenamientos,
-                        deficit_calorico: deficit
-                    })
+                const res = await fetch('/ingreso', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({descripcion: texto})
                 });
-                const data = await response.json();
-                const toast = document.getElementById('toast-notification');
-                const toastMsg = document.getElementById('toast-message');
+                const data = await res.json();
                 
-                if (toast && toastMsg) {
-                    toastMsg.innerText = data.message;
-                    toast.style.background = data.status === 'success' ? "#3b82f6" : "#ef4444";
-                    toast.style.transform = "translateY(0)";
-                    toast.style.opacity = "1";
+                document.getElementById(cargandoId).remove(); // Borrar 'escribiendo...'
+                
+                if (data.status === 'success') {
+                    // Agregar burbuja IA
+                    historialChat.innerHTML += `<div class="chat-burbuja chat-ia">🤖 ${data.respuesta_ia}</div>`;
+                    historialChat.scrollTop = historialChat.scrollHeight;
+                    
+                    // Actualizar macros
+                    actualizarMacros(data.totales);
+                    
+                    // Inyectar nuevos alimentos en la lista
+                    if(data.nuevos_alimentos && data.nuevos_alimentos.length > 0) {
+                        const lista = document.getElementById('lista-registros');
+                        const msgVacio = document.getElementById('msg-vacio');
+                        if (msgVacio) msgVacio.remove();
+                        
+                        data.nuevos_alimentos.forEach(al => {
+                            const htmlFila = `
+                            <div class="item-historial flash-update" id="reg-${al.id}">
+                                <div><p style="font-size: 14px; font-weight: 600; margin: 0;">${al.descripcion}</p>
+                                <span style="font-size: 12px; color: var(--texto-mutated);">${al.timestamp}</span></div>
+                                <div style="display: flex; align-items: center; gap: 15px;">
+                                    <div style="text-align: right;">
+                                        <span style="font-size: 14px; font-weight: bold; color: var(--primario);">${al.calorias} kcal</span>
+                                        <p style="font-size: 11px; color: var(--texto-mutated); margin: 0;">P: ${al.proteinas}g | C: ${al.carbohidratos}g | G: ${al.grasas}g</p>
+                                    </div>
+                                    <button class="btn-borrar" data-id="${al.id}" style="background: none; border: none; color: var(--rojo); cursor: pointer; padding: 4px;"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                            </div>`;
+                            lista.insertAdjacentHTML('afterbegin', htmlFila); // Inserta arriba de todo
+                        });
+                        asignarEventosBorrar(); // Reasignar eventos a los tachos nuevos
+                    }
+                } else if (data.status === 'revoked') {
+                    // BLOQUEO EN VIVO: Si la key falló
+                    document.getElementById('chat-activo').classList.add('hidden');
+                    document.getElementById('chat-bloqueado').classList.remove('hidden');
+                    document.getElementById('api-key-section').classList.remove('hidden');
+                    mostrarToast("API Key revocada por Google", true);
                 }
-                if (data.status === 'success') { setTimeout(() => { window.location.reload(); }, 2000); }
-            } catch (error) { alert("Error de red."); }
-            finally { btnActualizarObjetivos.innerText = "Reajustar Parámetros"; btnActualizarObjetivos.disabled = false; }
+            } catch(e) {
+                document.getElementById(cargandoId).remove();
+                mostrarToast("Error del servidor", true);
+            }
+        });
+    }
+
+    // 4. BORRAR COMIDA EN VIVO
+    function asignarEventosBorrar() {
+        document.querySelectorAll('.btn-borrar').forEach(btn => {
+            // Evitar que se asigne dos veces
+            btn.removeEventListener('click', borrarFila);
+            btn.addEventListener('click', borrarFila);
+        });
+    }
+
+    async function borrarFila(e) {
+        const btn = e.currentTarget;
+        const id = btn.getAttribute('data-id');
+        const fila = document.getElementById(`reg-${id}`);
+        
+        try {
+            const res = await fetch(`/borrar_comida/${id}`, { method: 'POST' });
+            const data = await res.json();
+            if (data.status === 'success') {
+                fila.style.opacity = '0'; // Efecto visual
+                setTimeout(() => fila.remove(), 300);
+                actualizarMacros(data.totales);
+            }
+        } catch(err) { mostrarToast("Error al borrar", true); }
+    }
+    
+    asignarEventosBorrar(); // Asignar a los que ya cargan con la página
+
+    // Ajustes
+    const btnActualizarObjetivos = document.getElementById('btn-actualizar-objetivos');
+    if(btnActualizarObjetivos) {
+        btnActualizarObjetivos.addEventListener('click', async () => {
+            const datos = {
+                peso: document.getElementById('edit-peso').value,
+                entrenamientos_semanales: document.getElementById('edit-entrenamientos').value,
+                deficit_calorico: document.getElementById('edit-deficit').value
+            };
+            btnActualizarObjetivos.innerText = "Guardando...";
+            const res = await fetch('/actualizar_objetivos', {
+                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(datos)
+            });
+            const data = await res.json();
+            mostrarToast(data.message, data.status !== 'success');
+            btnActualizarObjetivos.innerText = "Reajustar Parámetros";
         });
     }
 });
