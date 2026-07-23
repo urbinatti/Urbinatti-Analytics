@@ -171,7 +171,8 @@ def ingreso():
     if not descripcion:
         return jsonify({'status': 'error', 'message': 'Mensaje vacío.'}), 400
         
-    user_api_key = session.get('usuario_api_key') or os.environ.get("GEMINI_API_KEY")
+    # ELIMINAMOS LA CLAVE FANTASMA DEL SERVIDOR. AHORA ES ESTRICTO.
+    user_api_key = session.get('usuario_api_key')
     
     if not user_api_key:
         return jsonify({'status': 'revoked', 'message': 'No hay API Key activa.'}), 401
@@ -198,7 +199,8 @@ def ingreso():
             alimentos: list[Alimento]
             respuesta_chat: str
 
-        model = genai.GenerativeModel(model_name="gemini-1.5-flash", system_instruction=instruccion_sistema)
+        # USAMOS LATEST PARA ESQUIVAR EL ERROR 404
+        model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", system_instruction=instruccion_sistema)
         response = model.generate_content(
             descripcion,
             generation_config=genai.GenerationConfig(response_mime_type="application/json", response_schema=RespuestaIA),
@@ -263,7 +265,8 @@ def guardar_api_key():
         
     try:
         genai.configure(api_key=api_key_real, transport='rest')
-        model = genai.GenerativeModel("gemini-1.5-flash") 
+        # USAMOS LATEST TAMBIÉN EN EL PING
+        model = genai.GenerativeModel("gemini-1.5-flash-latest") 
         model.generate_content("ok", request_options={"timeout": 10.0})
     except Exception as e:
         error_msg = str(e).lower()
