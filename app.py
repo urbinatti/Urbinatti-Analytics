@@ -198,7 +198,7 @@ def ingreso():
             alimentos: list[Alimento]
             respuesta_chat: str
 
-        model = genai.GenerativeModel(model_name="gemini-2.0-flash", system_instruction=instruccion_sistema)
+        model = genai.GenerativeModel(model_name="gemini-1.5-flash", system_instruction=instruccion_sistema)
         response = model.generate_content(
             descripcion,
             generation_config=genai.GenerationConfig(response_mime_type="application/json", response_schema=RespuestaIA),
@@ -240,7 +240,9 @@ def ingreso():
         
     except Exception as e:
         error_msg = str(e).lower()
-        if 'api_key_invalid' in error_msg or 'api key not valid' in error_msg or '400' in error_msg or '403' in error_msg:
+        if '429' in error_msg or 'quota' in error_msg:
+            return jsonify({'status': 'quota', 'message': 'Límite de uso excedido por Google.'}), 429
+        elif 'api_key_invalid' in error_msg or 'api key not valid' in error_msg or '400' in error_msg or '403' in error_msg:
             database.actualizar_gemini_key(usuario_id, "")
             session.pop('usuario_api_key', None)
             return jsonify({'status': 'revoked', 'message': 'API Key revocada o inhabilitada.'}), 401
@@ -261,9 +263,12 @@ def guardar_api_key():
         
     try:
         genai.configure(api_key=api_key_real, transport='rest')
-        model = genai.GenerativeModel("gemini-2.0-flash") 
+        model = genai.GenerativeModel("gemini-1.5-flash") 
         model.generate_content("ok", request_options={"timeout": 10.0})
     except Exception as e:
+        error_msg = str(e).lower()
+        if '429' in error_msg or 'quota' in error_msg:
+             return jsonify({'status': 'error', 'message': 'La clave es real, pero tu cuenta agotó la cuota gratuita de Google.'}), 400
         return jsonify({'status': 'error', 'message': f'La API Key es inválida o fue rechazada. Detalle: {str(e)}'}), 400
 
     exito = database.actualizar_gemini_key(usuario_id, api_key_real)

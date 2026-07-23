@@ -38,11 +38,11 @@
 
         input, select, textarea { background: var(--bg-principal); border: 1px solid var(--borde); color: var(--texto); padding: 12px 16px; border-radius: 8px; outline: none; font-size: 14px; }
         input:focus, select:focus, textarea:focus { border-color: var(--primario); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+        input:disabled, button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .btn { background: var(--primario); color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; display: inline-flex; justify-content: center; align-items: center; gap: 8px; transition: background 0.2s, transform 0.1s; }
-        .btn:hover { background: var(--primario-dark); }
-        .btn:active { transform: scale(0.98); }
-        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn:hover:not(:disabled) { background: var(--primario-dark); }
+        .btn:active:not(:disabled) { transform: scale(0.98); }
 
         .item-historial { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--borde); transition: opacity 0.3s ease; }
         .item-historial:last-child { border-bottom: none; }
@@ -58,6 +58,7 @@
         .chat-user { background: var(--primario); color: white; float: right; clear: both; border-bottom-right-radius: 2px; }
         .chat-ia { background: rgba(255,255,255,0.08); float: left; clear: both; border-bottom-left-radius: 2px; color: var(--texto); }
         [data-theme="light"] .chat-ia { background: #e2e8f0; }
+        .chat-error { background: var(--rojo); color: white; float: left; clear: both; border-radius: 8px; font-weight: bold; }
         
         .hidden { display: none !important; }
     </style>
@@ -123,7 +124,7 @@
                 <div id="chat-bloqueado" class="hidden" style="text-align: center; padding: 30px 20px; border: 1px dashed var(--borde); border-radius: 10px; background-color: rgba(0,0,0,0.1);">
                     <i class="fa-solid fa-lock" style="font-size: 32px; color: var(--texto-mutated); margin-bottom: 15px;"></i>
                     <h4 style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">Asistente Bloqueado</h4>
-                    <p style="font-size: 14px; color: var(--texto-mutated); margin-bottom: 25px;">Para interactuar con la IA necesitás vincular una API Key válida. Generala en Google Studio y pegala arriba.</p>
+                    <p id="bloqueo-texto" style="font-size: 14px; color: var(--texto-mutated); margin-bottom: 25px;">Para interactuar con la IA necesitás vincular una API Key válida. Generala en Google Studio y pegala arriba.</p>
                     <a href="https://aistudio.google.com/app/apikey" target="_blank" class="btn"><i class="fa-solid fa-key"></i> Google AI Studio</a>
                 </div>
 
@@ -237,6 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const key = document.getElementById('gemini-key-input').value.trim();
             if (!key) return;
             btnGuardarKey.innerText = 'Validando en Google...';
+            btnGuardarKey.disabled = true;
             
             try {
                 const res = await fetch('/guardar_api_key', {
@@ -252,21 +254,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     mostrarToast(data.message, true);
                 }
             } catch (e) { mostrarToast("Error de conexión", true); }
-            finally { btnGuardarKey.innerText = 'Activar Créditos'; }
+            finally { 
+                btnGuardarKey.innerText = 'Activar Créditos'; 
+                btnGuardarKey.disabled = false;
+            }
         });
     }
 
     const formChat = document.getElementById('form-chat');
     const historialChat = document.getElementById('historial-chat');
+    const inputChat = document.getElementById('input-chat');
+    const btnEnviarChat = document.getElementById('btn-enviar-chat');
     
     if (formChat) {
         formChat.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const input = document.getElementById('input-chat');
-            const texto = input.value.trim();
+            const texto = inputChat.value.trim();
             if(!texto) return;
             
-            input.value = '';
+            inputChat.value = '';
+            inputChat.disabled = true;
+            btnEnviarChat.disabled = true;
             
             historialChat.innerHTML += `<div class="chat-burbuja chat-user">${texto}</div>`;
             const cargandoId = 'cargando-' + Date.now();
@@ -309,15 +317,31 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                         asignarEventosBorrar();
                     }
-                } else if (data.status === 'revoked') {
+                } else if (data.status === 'revoked' || data.status === 'quota') {
                     document.getElementById('chat-activo').classList.add('hidden');
-                    document.getElementById('chat-bloqueado').classList.remove('hidden');
+                    const bloqueoDiv = document.getElementById('chat-bloqueado');
+                    bloqueoDiv.classList.remove('hidden');
                     document.getElementById('api-key-section').classList.remove('hidden');
-                    mostrarToast("Atención: Necesitás una API Key", true);
+                    
+                    if (data.status === 'quota') {
+                        document.getElementById('bloqueo-texto').innerText = "Tu API Key alcanzó el límite de uso gratuito de Google. Esperá unos minutos o vinculá una clave nueva.";
+                        mostrarToast("Límite de cuota excedido", true);
+                    } else {
+                        document.getElementById('bloqueo-texto').innerText = "Para interactuar con la IA necesitás vincular una API Key válida. Generala en Google Studio y pegala arriba.";
+                        mostrarToast("API Key revocada o ausente", true);
+                    }
+                } else {
+                    historialChat.innerHTML += `<div class="chat-burbuja chat-error">⚠️ ${data.message}</div>`;
+                    historialChat.scrollTop = historialChat.scrollHeight;
                 }
             } catch(e) {
                 document.getElementById(cargandoId).remove();
-                mostrarToast("Error del servidor", true);
+                historialChat.innerHTML += `<div class="chat-burbuja chat-error">⚠️ Error de conexión con el servidor.</div>`;
+                historialChat.scrollTop = historialChat.scrollHeight;
+            } finally {
+                inputChat.disabled = false;
+                btnEnviarChat.disabled = false;
+                inputChat.focus();
             }
         });
     }
