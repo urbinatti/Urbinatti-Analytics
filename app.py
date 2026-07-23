@@ -113,18 +113,17 @@ def index():
         meta_proteina = int(peso * 2.0)
 
     return render_template(
-        'index.html',
-        registros=registros,
-        user_data=user_data,
-        calorias_totales=totales['calorias'],
-        proteina_total=totales['proteinas'],
-        carbs_totales=totales['carbs_totales'] if 'carbs_totales' in locals() else 0, # safeguards
-        carbs_totales=totales['carbohidratos'],
-        grasas_totales=totales['grasas'],
-        meta_calorias=meta_calorias,
-        meta_proteina=meta_proteina,
-        tiene_api_key=tiene_api_key
-    )
+            'index.html',
+            registros=registros,
+            user_data=user_data,
+            calorias_totales=totales['calorias'],
+            proteina_total=totales['proteinas'],
+            carbs_totales=totales['carbohidratos'],
+            grasas_totales=totales['grasas'],
+            meta_calorias=meta_calorias,
+            meta_proteina=meta_proteina,
+            tiene_api_key=tiene_api_key
+        )
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
