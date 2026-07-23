@@ -270,8 +270,7 @@ def guardar_api_key():
         model = genai.GenerativeModel("gemini-1.5-flash") # Usamos un modelo liviano solo para el ping
         model.generate_content("Responde ok", request_options={"timeout": 5.0})
     except Exception as e:
-        return jsonify({'status': 'error', 'message': 'La API Key ingresada es inválida o fue rechazada por Google.'}), 400
-
+        return jsonify({'status': 'error', 'message': f'Error técnico: {str(e)}'}), 400
     exito = database.actualizar_gemini_key(usuario_id, api_key_real)
     if exito:
         session['usuario_api_key'] = api_key_real
