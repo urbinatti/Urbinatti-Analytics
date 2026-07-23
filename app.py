@@ -87,7 +87,7 @@ def index():
         
     user_data = dict(row_user)
     api_key_db = str(user_data.get('gemini_api_key') or '').strip()
-    tiene_api_key = len(api_key_db) > 30 
+    tiene_api_key = len(api_key_db) > 20 
         
     cursor.execute("""
         SELECT * FROM registros_comidas 
@@ -198,7 +198,6 @@ def ingreso():
             alimentos: list[Alimento]
             respuesta_chat: str
 
-        # USAMOS GEMINI-2.0-FLASH QUE ES EL MODELO OFICIAL ACTUAL
         model = genai.GenerativeModel(model_name="gemini-2.0-flash", system_instruction=instruccion_sistema)
         response = model.generate_content(
             descripcion,
@@ -242,7 +241,7 @@ def ingreso():
     except Exception as e:
         error_msg = str(e).lower()
         if '429' in error_msg or 'quota' in error_msg:
-            return jsonify({'status': 'quota', 'message': 'Límite de uso excedido por Google.'}), 429
+            return jsonify({'status': 'quota', 'message': 'Límite de cuota excedido en el proyecto GCP.'}), 429
         elif 'api_key_invalid' in error_msg or 'api key not valid' in error_msg or '400' in error_msg or '403' in error_msg:
             database.actualizar_gemini_key(usuario_id, "")
             session.pop('usuario_api_key', None)
@@ -259,18 +258,17 @@ def guardar_api_key():
     data = request.get_json()
     api_key_real = data.get('gemini_api_key', '').strip()
     
-    if len(api_key_real) < 30:
+    if len(api_key_real) < 15:
         return jsonify({'status': 'error', 'message': 'La clave ingresada es demasiado corta para ser válida.'}), 400
         
     try:
         genai.configure(api_key=api_key_real, transport='rest')
-        # PING CON GEMINI-2.0-FLASH
         model = genai.GenerativeModel("gemini-2.0-flash") 
         model.generate_content("ok", request_options={"timeout": 10.0})
     except Exception as e:
         error_msg = str(e).lower()
         if '429' in error_msg or 'quota' in error_msg:
-             return jsonify({'status': 'error', 'message': 'La clave es real, pero tu cuenta agotó la cuota gratuita o requiere verificación en Google AI Studio.'}), 400
+             return jsonify({'status': 'error', 'message': 'La clave es real, pero el proyecto GCP asociado tiene cuota en 0.'}), 400
         return jsonify({'status': 'error', 'message': f'La API Key es inválida o fue rechazada. Detalle: {str(e)}'}), 400
 
     exito = database.actualizar_gemini_key(usuario_id, api_key_real)
