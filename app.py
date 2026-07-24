@@ -167,8 +167,14 @@ def registro():
     resultado = database.registrar_nuevo_usuario(nombre, password, peso, entrenamientos, objetivo, deficit)
     
     if resultado.get('status') == 'success':
-        flash("¡Cuenta creada con éxito! Ahora podés iniciar sesión.", "success")
-        return redirect(url_for('login'))
+        # Autologin automático inmediato usando las credenciales recién creadas
+        usuario = database.verificar_credenciales(nombre, password)
+        if usuario:
+            session.permanent = True  # Mantiene la sesión persistente mediante cookies
+            session['usuario_id'] = usuario['id']
+            session['usuario_nombre'] = usuario['nombre']
+            session['usuario_api_key'] = usuario.get('gemini_api_key')
+            return redirect(url_for('index'))
         
     flash(f"Error: {resultado.get('message')}", "error")
     return redirect(url_for('login'))
