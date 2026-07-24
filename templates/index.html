@@ -164,7 +164,6 @@
             const texto = mensajeInput.value.trim();
             if (!texto) return;
 
-            // Mostrar mensaje del usuario
             chatContainer.innerHTML += `
                 <div class="flex justify-end">
                     <div class="bg-emerald-900/60 text-emerald-100 rounded-2xl rounded-tr-none p-3 max-w-[85%] text-sm border border-emerald-800/50">
@@ -184,7 +183,6 @@
                 const data = await res.json();
 
                 if (data.status === 'success') {
-                    // Respuesta de la IA
                     chatContainer.innerHTML += `
                         <div class="flex items-start space-x-2">
                             <div class="bg-gray-800 text-gray-200 rounded-2xl rounded-tl-none p-3 max-w-[85%] text-sm border border-gray-700">
@@ -192,13 +190,11 @@
                             </div>
                         </div>
                     `;
-                    // Actualizar totales en pantalla
                     document.getElementById('val-calorias').innerText = data.totales.calorias;
                     document.getElementById('val-proteinas').innerText = data.totales.proteinas;
                     document.getElementById('val-carbs').innerText = data.totales.carbohidratos;
                     document.getElementById('val-grasas').innerText = data.totales.grasas;
 
-                    // Agregar nuevos alimentos a la lista de resumen si hay
                     if (data.nuevos_alimentos && data.nuevos_alimentos.length > 0) {
                         const lista = document.getElementById('lista-comidas');
                         data.nuevos_alimentos.forEach(item => {
@@ -226,7 +222,8 @@
             const res = await fetch('/borrar_comida/' + id, { method: 'POST' });
             const data = await res.json();
             if (data.status === 'success') {
-                document.getElementById('comida-' + id).remove();
+                const el = document.getElementById('comida-' + id);
+                if (el) el.remove();
                 document.getElementById('val-calorias').innerText = data.totales.calorias;
                 document.getElementById('val-proteinas').innerText = data.totales.proteinas;
                 document.getElementById('val-carbs').innerText = data.totales.carbohidratos;
