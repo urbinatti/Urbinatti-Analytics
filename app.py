@@ -1,6 +1,7 @@
 import os
 import secrets
 import json
+import re
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 import database
 from google import genai
@@ -9,19 +10,32 @@ from google.genai import types
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(24))
 
+def parse_float_seguro(val):
+    if val is None:
+        return 0.0
+    if isinstance(val, (int, float)):
+        return float(val)
+    match = re.search(r'([-+]?\d*\.\d+|\d+)', str(val).replace(',', '.'))
+    if match:
+        try:
+            return float(match.group(1))
+        except ValueError:
+            return 0.0
+    return 0.0
+
 def obtener_datos_atleta_local(usuario_id):
     conn = database.obtener_conexion() 
     if not conn: 
-        return {'peso_kg': 70.0, 'entrenamientos_semanales': 5, 'deficit_objetivo_kcal': -500}
+        return {'peso_kg': 70.0, 'entrenamientos_semanales': 5, 'deficit_objetivo_kcal': -500, 'objetivo': 'definicion'}
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT peso_kg, entrenamientos_semanales, deficit_objetivo_kcal FROM usuarios WHERE id = ?", (usuario_id,))
+        cursor.execute("SELECT peso_kg, entrenamientos_semanales, deficit_objetivo_kcal, objetivo FROM usuarios WHERE id = ?", (usuario_id,))
         res = cursor.fetchone()
         if res:
             return dict(res)
-        return {'peso_kg': 70.0, 'entrenamientos_semanales': 5, 'deficit_objetivo_kcal': -500}
+        return {'peso_kg': 70.0, 'entrenamientos_semanales': 5, 'deficit_objetivo_kcal': -500, 'objetivo': 'definicion'}
     except Exception as e:
-        return {'peso_kg': 70.0, 'entrenamientos_semanales': 5, 'deficit_objetivo_kcal': -500}
+        return {'peso_kg': 70.0, 'entrenamientos_semanales': 5, 'deficit_objetivo_kcal': -500, 'objetivo': 'definicion'}
     finally:
         cursor.close()
         conn.close()
@@ -33,9 +47,9 @@ def modificar_perfil_atleta_local(usuario_id, peso, entrenamientos, objetivo, de
     try:
         cursor.execute("""
             UPDATE usuarios 
-            SET peso_kg = ?, entrenamientos_semanales = ?, deficit_objetivo_kcal = ? 
+            SET peso_kg = ?, entrenamientos_semanales = ?, objetivo = ?, deficit_objetivo_kcal = ? 
             WHERE id = ?
-        """, (peso, entrenamientos, deficit, usuario_id))
+        """, (peso, entrenamientos, objetivo, deficit, usuario_id))
         conn.commit()
         return True
     except Exception as e:
@@ -147,7 +161,7 @@ def registro():
     password = request.form.get('password')
     peso = float(request.form.get('peso', 70.0))
     entrenamientos = int(request.form.get('entrenamientos_semanales', 5))
-    deficit = int(request.form.get('deficit_calorico', 0))
+    deficit = int(request.form.get('deficit_calorico', -500))
     
     objetivo = "recomposicion" if -100 <= deficit <= 100 else ("definicion" if deficit < -100 else "volumen")
     resultado = database.registrar_nuevo_usuario(nombre, password, peso, entrenamientos, objetivo, deficit)
@@ -179,12 +193,24 @@ def ingreso():
     try:
         user_data = obtener_datos_atleta_local(usuario_id)
         peso_cliente = user_data.get('peso_kg', 70.0)
-        entrenamientos_cliente = user_data.get('entrenamientos_semanales', 3)
-        objetivo_cliente = user_data.get('objetivo', 'mantenimiento')
+        entrenamientos_cliente = user_data.get('entrenamientos_semanales', 5)
+        deficit_cliente = user_data.get('deficit_objetivo_kcal', -500)
+        objetivo_cliente = user_data.get('objetivo', 'definicion')
         
         client = genai.Client(api_key=user_api_key)
         
-        instruccion_sistema = f"Eres un asistente de nutrición y rendimiento deportivo objetivo y directo. El usuario actual pesa {peso_cliente}kg, entrena {entrenamientos_cliente} veces por semana y su objetivo es {objetivo_cliente}. Tu tarea es mantener una charla fluida y útil. Si el usuario menciona que consumió alimentos, estima sus macronutrientes y calorías con precisión en formato JSON con las claves 'alimentos' (lista con descripcion, peso, calorias, proteinas, carbohidratos, grasas) y 'respuesta_chat' (texto). Si es charla general, deja la lista vacía."
+        instruccion_sistema = (
+            f"Eres un asistente profesional de nutrición y rendimiento deportivo, directo, objetivo y basado en datos empíricos. "
+            f"El perfil técnico del usuario actual cargado en la base de datos es: peso {peso_cliente}kg, "
+            f"nivel de entrenamiento de {entrenamientos_cliente} veces por semana, objetivo principal '{objetivo_cliente}' "
+            f"con una meta de ajuste calórico de {deficit_cliente} kcal.\n\n"
+            f"Tu tarea es mantener una interacción fluida, precisa y analítica. Si el usuario reporta consumo de alimentos, "
+            f"calcula con precisión matemática sus macros y calorías basándote en porciones estándar y composición nutricional real, "
+            f"devolviendo estrictamente un JSON con las claves:\n"
+            f"- 'alimentos': lista de objetos con (descripcion, peso [número puro en gramos], calorias, proteinas, carbohidratos, grasas).\n"
+            f"- 'respuesta_chat': texto analítico, directo y objetivo con el desglose del impacto en el balance diario.\n"
+            f"Si se trata de una consulta general o simulación, deja la lista 'alimentos' vacía y responde de forma directa."
+        )
 
         response = client.models.generate_content(
             model="gemini-3.1-flash-lite",
@@ -204,7 +230,11 @@ def ingreso():
             cursor = conn.cursor()
             for item in alimentos:
                 desc = str(item.get('descripcion') or 'Alimento')
-                p_gr, kcal, prot, carb, grasa = float(item.get('peso') or 0.0), float(item.get('calorias') or 0.0), float(item.get('proteinas') or 0.0), float(item.get('carbohidratos') or 0.0), float(item.get('grasas') or 0.0)
+                p_gr = parse_float_seguro(item.get('peso'))
+                kcal = parse_float_seguro(item.get('calorias'))
+                prot = parse_float_seguro(item.get('proteinas'))
+                carb = parse_float_seguro(item.get('carbohidratos'))
+                grasa = parse_float_seguro(item.get('grasas'))
                 
                 cursor.execute("""
                     INSERT INTO registros_comidas (descripcion, peso, calorias, proteinas, carbohidratos, grasas, timestamp, usuario_id)
@@ -293,7 +323,7 @@ def actualizar_objetivos():
         return jsonify({'status': 'error', 'message': 'Sesión no válida.'}), 401
         
     data = request.get_json()
-    peso, entrenamientos, deficit_ingresado = float(data.get('peso', 70.0)), int(data.get('entrenamientos_semanales', 5)), int(data.get('deficit_calorico', 0))
+    peso, entrenamientos, deficit_ingresado = float(data.get('peso', 70.0)), int(data.get('entrenamientos_semanales', 5)), int(data.get('deficit_calorico', -500))
     objetivo = "recomposicion" if -100 <= deficit_ingresado <= 100 else ("definicion" if deficit_ingresado < -100 else "volumen")
     
     if modificar_perfil_atleta_local(usuario_id, peso, entrenamientos, objetivo, deficit_ingresado):
