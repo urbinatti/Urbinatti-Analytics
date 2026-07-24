@@ -187,7 +187,7 @@ def ingreso():
         instruccion_sistema = f"Eres un asistente de nutrición y rendimiento deportivo objetivo y directo. El usuario actual pesa {peso_cliente}kg, entrena {entrenamientos_cliente} veces por semana y su objetivo es {objetivo_cliente}. Tu tarea es mantener una charla fluida y útil. Si el usuario menciona que consumió alimentos, estima sus macronutrientes y calorías con precisión en formato JSON con las claves 'alimentos' (lista con descripcion, peso, calorias, proteinas, carbohidratos, grasas) y 'respuesta_chat' (texto). Si es charla general, deja la lista vacía."
 
         response = client.models.generate_content(
-            model="gemini-3.5-flash",
+            model="gemini-3.1-flash-lite",
             contents=descripcion,
             config=types.GenerateContentConfig(
                 system_instruction=instruccion_sistema,
@@ -230,8 +230,8 @@ def ingreso():
         
     except Exception as e:
         error_msg = str(e).lower()
-        if '429' in error_msg or 'quota' in error_msg:
-            return jsonify({'status': 'quota', 'message': 'Límite de cuota excedido.'}), 429
+        if '429' in error_msg or 'quota' in error_msg or '503' in error_msg:
+            return jsonify({'status': 'quota', 'message': 'Límite de cuota o saturación del servidor.'}), 429
         elif 'api_key_invalid' in error_msg or 'api key not valid' in error_msg or '400' in error_msg or '403' in error_msg or 'unauthorized' in error_msg:
             database.actualizar_gemini_key(usuario_id, "")
             session.pop('usuario_api_key', None)
@@ -254,7 +254,7 @@ def guardar_api_key():
     try:
         client = genai.Client(api_key=api_key_real)
         client.models.generate_content(
-            model="gemini-3.5-flash",
+            model="gemini-3.1-flash-lite",
             contents="ok"
         )
     except Exception as e:
