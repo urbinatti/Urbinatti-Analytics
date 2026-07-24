@@ -260,12 +260,12 @@ def ingreso():
         
     except Exception as e:
         error_msg = str(e).lower()
-        if '429' in error_msg or 'quota' in error_msg or '503' in error_msg:
+        if any(k in error_msg for k in ['429', 'quota', 'resource_exhausted']):
             return jsonify({'status': 'quota', 'message': 'Límite de cuota o saturación del servidor.'}), 429
-        elif 'api_key_invalid' in error_msg or 'api key not valid' in error_msg or '400' in error_msg or '403' in error_msg or 'unauthorized' in error_msg:
+        elif any(k in error_msg for k in ['400', '401', '403', 'api_key', 'api key', 'invalid', 'unauthorized', 'permission_denied', 'revoked']):
             database.actualizar_gemini_key(usuario_id, "")
             session.pop('usuario_api_key', None)
-            return jsonify({'status': 'revoked', 'message': 'API Key revocada o inhabilitada.'}), 401
+            return jsonify({'status': 'revoked', 'message': 'API Key revocada, inválida o faltante.'}), 401
             
         return jsonify({'status': 'error', 'message': f'Error del servidor: {str(e)}'}), 500
 

@@ -80,7 +80,7 @@
                             <i class="fa-solid fa-lock"></i> Acción Requerida: API Key Faltante
                         </p>
                         <p class="text-zinc-300 text-xs leading-relaxed">
-                            Para usar a Koko, generá tu clave gratis eインgrésala en Ajustes:
+                            Para usar a Koko, generá tu clave gratis e ingrésala en Ajustes:
                         </p>
                         <ol class="list-decimal list-inside space-y-1 text-zinc-300 text-[11px] pl-1">
                             <li>Entrá directo a <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-brand-orange underline font-semibold">Google AI Studio - Crear API Key</a>.</li>
@@ -242,6 +242,28 @@
                                 `;
                             });
                         }
+                    } else if (data.status === 'revoked' || res.status === 401) {
+                        // Inyectar el banner estético directamente en el chat en lugar de texto plano
+                        chatContainer.innerHTML += `
+                            <div class="bg-orange-500/10 border border-orange-500/30 text-orange-200 rounded-xl p-3.5 space-y-2 my-2">
+                                <p class="font-bold text-brand-orange flex items-center gap-1.5 text-sm">
+                                    <i class="fa-solid fa-lock"></i> API Key Inválida o Revocada
+                                </p>
+                                <p class="text-zinc-300 text-xs leading-relaxed">
+                                    Tu clave actual no es válida. Generá una nueva en un clic:
+                                </p>
+                                <ol class="list-decimal list-inside space-y-1 text-zinc-300 text-[11px] pl-1">
+                                    <li>Entrá directo a <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-brand-orange underline font-semibold">Google AI Studio - Crear API Key</a>.</li>
+                                    <li>Copiá la clave y pegala abajo en Ajustes.</li>
+                                </ol>
+                                <button onclick="switchView('perfil')" class="w-full mt-2 bg-brand-orange hover:bg-orange-600 text-white py-2 rounded-lg font-semibold transition text-xs flex items-center justify-center gap-1.5">
+                                    <i class="fa-solid fa-gear"></i> Ir a Ajustes a Pegarla
+                                </button>
+                            </div>
+                        `;
+                        mensajeInput.disabled = true;
+                        mensajeInput.placeholder = "🔒 Configura tu API Key en Ajustes...";
+                        document.getElementById('btn-enviar').disabled = true;
                     } else {
                         chatContainer.innerHTML += `<div class="text-red-400 text-xs my-1">Error: ${data.message}</div>`;
                     }
