@@ -74,16 +74,17 @@
                 
                 <div id="chat-container" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
                     {% if not tiene_api_key %}
-                    <!-- BANNER DE ONBOARDING SI NO HAY API KEY -->
+                    <!-- BANNER DE ONBOARDING DIRECTO -->
                     <div class="bg-orange-500/10 border border-orange-500/30 text-orange-200 rounded-xl p-3.5 space-y-2">
                         <p class="font-bold text-brand-orange flex items-center gap-1.5 text-sm">
                             <i class="fa-solid fa-lock"></i> Acción Requerida: API Key Faltante
                         </p>
                         <p class="text-zinc-300 text-xs leading-relaxed">
-                            Para chatear con Koko y registrar tus comidas con IA, necesitas vincular tu clave de Google Gemini:
+                            Para usar a Koko, generá tu clave gratis eインgrésala en Ajustes:
                         </p>
                         <ol class="list-decimal list-inside space-y-1 text-zinc-300 text-[11px] pl-1">
-                            <li>Entrá a <a href="https://aistudio.google.com/" target="_blank" class="text-brand-orange underline font-medium">Google AI Studio</a> y generá una clave gratis.</li>
+                            <li>Entrá directo a <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-brand-orange underline font-semibold">Google AI Studio - Crear API Key</a>.</li>
+                            <li>Copiá tu clave y pegala abajo en Ajustes.</li>
                         </ol>
                         <button onclick="switchView('perfil')" class="w-full mt-2 bg-brand-orange hover:bg-orange-600 text-white py-2 rounded-lg font-semibold transition text-xs flex items-center justify-center gap-1.5">
                             <i class="fa-solid fa-gear"></i> Ir a Ajustes a Pegarla
@@ -289,7 +290,7 @@
             const data = await res.json();
             alert(data.message);
             if (data.status === 'success') {
-                window.location.reload(); // Recarga automática al guardar la API Key para habilitar el chat al instante
+                window.location.reload();
             }
         });
     </script>
