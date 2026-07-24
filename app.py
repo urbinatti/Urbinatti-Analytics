@@ -182,13 +182,12 @@ def ingreso():
         entrenamientos_cliente = user_data.get('entrenamientos_semanales', 3)
         objetivo_cliente = user_data.get('objetivo', 'mantenimiento')
         
-        # NUEVO CLIENTE OFICIAL QUE SOPORTA CLAVES AQ.
         client = genai.Client(api_key=user_api_key)
         
         instruccion_sistema = f"Eres un asistente de nutrición y rendimiento deportivo objetivo y directo. El usuario actual pesa {peso_cliente}kg, entrena {entrenamientos_cliente} veces por semana y su objetivo es {objetivo_cliente}. Tu tarea es mantener una charla fluida y útil. Si el usuario menciona que consumió alimentos, estima sus macronutrientes y calorías con precisión en formato JSON con las claves 'alimentos' (lista con descripcion, peso, calorias, proteinas, carbohidratos, grasas) y 'respuesta_chat' (texto). Si es charla general, deja la lista vacía."
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-3.5-flash",
             contents=descripcion,
             config=types.GenerateContentConfig(
                 system_instruction=instruccion_sistema,
@@ -249,15 +248,25 @@ def guardar_api_key():
     data = request.get_json()
     api_key_real = data.get('gemini_api_key', '').strip()
     
-    # Validamos únicamente que tenga el formato lógico de una clave de Google (empiece con AQ o AIza y tenga longitud suficiente)
-    if len(api_key_real) < 20 or not (api_key_real.startswith('AQ.') or api_key_real.startswith('AIza')):
-        return jsonify({'status': 'error', 'message': 'La clave ingresada no tiene un formato válido (debe empezar con AQ. o AIza).'}), 400
+    if len(api_key_real) < 15:
+        return jsonify({'status': 'error', 'message': 'La clave ingresada es demasiado corta para ser válida.'}), 400
+        
+    try:
+        client = genai.Client(api_key=api_key_real)
+        client.models.generate_content(
+            model="gemini-3.5-flash",
+            contents="ok"
+        )
+    except Exception as e:
+        error_msg = str(e).lower()
+        if '429' in error_msg or 'quota' in error_msg:
+             return jsonify({'status': 'error', 'message': 'La clave es real, pero superó el límite de uso.'}), 400
+        return jsonify({'status': 'error', 'message': f'La API Key es inválida o fue rechazada. Detalle: {str(e)}'}), 400
 
-    # Guardamos la clave directamente sin forzar un test de API que rompa por restricciones de cuota
     exito = database.actualizar_gemini_key(usuario_id, api_key_real)
     if exito:
         session['usuario_api_key'] = api_key_real
-        return jsonify({'status': 'success', 'message': 'API Key guardada y vinculada correctamente.'})
+        return jsonify({'status': 'success', 'message': 'API Key verificada y vinculada.'})
         
     return jsonify({'status': 'error', 'message': 'Error interno al escribir en la base de datos.'}), 500
 
