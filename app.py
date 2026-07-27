@@ -1,416 +1,102 @@
 import os
-import secrets
-import json
-import re
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
-import database
-from google import genai
-from google.genai import types
-from authlib.integrations.flask_client import OAuth
+import requests
+from flask import Flask, render_template, request, redirect, url_for, session
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde el archivo .env
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(24))
+# La secret_key es obligatoria para que funcionen las sesiones de usuario
+app.secret_key = os.getenv("SECRET_KEY", "clave-secreta-urbinatti-2026")
 
-# Configuración de OAuth con Google (Segura mediante variables de entorno)
-oauth = OAuth(app)
-google = oauth.register(
-    name='google',
-    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
-    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={
-        'scope': 'openid email profile'
-    }
-)
-
-def parse_float_seguro(val):
-    if val is None:
-        return 0.0
-    if isinstance(val, (int, float)):
-        return float(val)
-    match = re.search(r'([-+]?\d*\.\d+|\d+)', str(val).replace(',', '.'))
-    if match:
-        try:
-            return float(match.group(1))
-        except ValueError:
-            return 0.0
-    return 0.0
-
-def obtener_datos_atleta_local(usuario_id):
-    conn = database.obtener_conexion() 
-    if not conn: 
-        return {'peso_kg': 70.0, 'entrenamientos_semanales': 5, 'deficit_objetivo_kcal': -500, 'objetivo': 'definicion'}
-    cursor = conn.cursor()
-    try:
-        cursor.execute("SELECT peso_kg, entrenamientos_semanales, deficit_objetivo_kcal, objetivo FROM usuarios WHERE id = ?", (usuario_id,))
-        res = cursor.fetchone()
-        if res:
-            return dict(res)
-        return {'peso_kg': 70.0, 'entrenamientos_semanales': 5, 'deficit_objetivo_kcal': -500, 'objetivo': 'definicion'}
-    except Exception as e:
-        return {'peso_kg': 70.0, 'entrenamientos_semanales': 5, 'deficit_objetivo_kcal': -500, 'objetivo': 'definicion'}
-    finally:
-        cursor.close()
-        conn.close()
-
-def modificar_perfil_atleta_local(usuario_id, peso, entrenamientos, objetivo, deficit):
-    conn = database.obtener_conexion()
-    if not conn: return False
-    cursor = conn.cursor()
-    try:
-        cursor.execute("""
-            UPDATE usuarios 
-            SET peso_kg = ?, entrenamientos_semanales = ?, objetivo = ?, deficit_objetivo_kcal = ? 
-            WHERE id = ?
-        """, (peso, entrenamientos, objetivo, deficit, usuario_id))
-        conn.commit()
-        return True
-    except Exception as e:
-        return False
-    finally:
-        cursor.close()
-        conn.close()
-
-def obtener_totales_sincronizados(usuario_id):
-    conn = database.obtener_conexion()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT calorias, proteinas, carbohidratos, grasas 
-        FROM registros_comidas 
-        WHERE usuario_id = ? AND DATE(timestamp) = DATE('now', 'localtime')
-    """, (usuario_id,))
-    registros = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    
-    calorias_totales = sum(float(r['calorias'] or 0) for r in registros)
-    proteina_total = sum(float(r['proteinas'] or 0) for r in registros)
-    carbs_totales = sum(float(r['carbohidratos'] or 0) for r in registros)
-    grasas_totales = sum(float(r['grasas'] or 0) for r in registros)
-    
-    return {
-        'calorias': int(calorias_totales),
-        'proteinas': int(proteina_total),
-        'carbohidratos': int(carbs_totales),
-        'grasas': int(grasas_totales)
-    }
-@app.route('/signup', methods=['GET', 'POST'])
-def signup():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        return redirect(url_for('home'))
+# Credenciales de Google OAuth (configuralas en tu archivo .env)
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
 @app.route('/')
 def index():
-    if 'usuario_id' not in session:
-        return redirect(url_for('login'))
-        
-    usuario_id = session['usuario_id']
-    
-    conn = database.obtener_conexion()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id,))
-    row_user = cursor.fetchone()
-    
-    if not row_user:
-        cursor.close()
-        conn.close()
-        return "Error: Usuario no encontrado.", 404
-        
-    user_data = dict(row_user)
-    api_key_db = str(user_data.get('gemini_api_key') or '').strip()
-    tiene_api_key = len(api_key_db) > 20 
-        
-    cursor.execute("""
-        SELECT * FROM registros_comidas 
-        WHERE usuario_id = ? AND DATE(timestamp) = DATE('now', 'localtime')
-        ORDER BY timestamp DESC
-    """, (usuario_id,))
-    registros = [dict(row) for row in cursor.fetchall()]
-    cursor.close()
-    conn.close()
-    
-    totales = obtener_totales_sincronizados(usuario_id)
-    
-    peso = float(user_data.get('peso_kg') or 70.0)
-    dias_gym = int(user_data.get('entrenamientos_semanales') or 5)
-    deficit_target = int(user_data.get('deficit_objetivo_kcal') or -500)
-    
-    meta_calorias = 0
-    meta_proteina = 0
-    if peso > 0:
-        factor_actividad = 1.2 + (dias_gym * 0.07)
-        tdee_base = (10 * peso + 625) * factor_actividad
-        meta_calorias = int(tdee_base + deficit_target)
-        meta_proteina = int(peso * 2.0)
-
-    return render_template(
-        'index.html',
-        registros=registros,
-        user_data=user_data,
-        calorias_totales=totales['calorias'],
-        proteina_total=totales['proteinas'],
-        carbs_totales=totales['carbohidratos'],
-        grasas_totales=totales['grasas'],
-        meta_calorias=meta_calorias,
-        meta_proteina=meta_proteina,
-        tiene_api_key=tiene_api_key
-    )
+    # Valida si el usuario está autenticado; si no, lo patea al login
+    if 'usuario' not in session:
+        return redirect(url_for('login_view'))
+    return render_template('index.html')
 
 @app.route('/login', methods=['GET', 'POST'])
-def login():
+def login_view():
     if request.method == 'POST':
         nombre = request.form.get('nombre')
         password = request.form.get('password')
-        usuario = database.verificar_credenciales(nombre, password)
-        if usuario:
-            session.permanent = True
-            session['usuario_id'] = usuario['id']
-            session['usuario_nombre'] = usuario['nombre']
-            session['usuario_api_key'] = usuario.get('gemini_api_key')
-            return redirect(url_for('index'))
-        else:
-            flash("Credenciales incorrectas o usuario inexistente.", "error")
-            return render_template('login.html')
-    return render_template('login.html')
-
-@app.route('/login/google')
-def login_google():
-    redirect_uri = url_for('authorize', _external=True)
-    return google.authorize_redirect(redirect_uri)
-
-@app.route('/auth/google/callback')
-def authorize():
-    try:
-        token = google.authorize_access_token()
-        user_info = token.get('userinfo')
-        if not user_info:
-            flash("No se pudo autenticar con Google.", "error")
-            return redirect(url_for('login'))
-        
-        email = user_info.get('email')
-        nombre = user_info.get('name') or email.split('@')[0]
-        
-        conn = database.obtener_conexion()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM usuarios WHERE nombre = ?", (nombre,))
-        row = cursor.fetchone()
-        
-        if row:
-            usuario = dict(row)
-            usuario_id = usuario['id']
-        else:
-            # Si no existe, lo registramos automáticamente con valores por defecto
-            cursor.execute("""
-                INSERT INTO usuarios (nombre, password_hash, peso_kg, entrenamientos_semanales, objetivo, deficit_objetivo_kcal)
-                VALUES (?, ?, 70.0, 5, 'definicion', -500)
-            """, (nombre, secrets.token_hex(16)))
-            conn.commit()
-            usuario_id = cursor.lastrowid
-            
-        cursor.execute("SELECT gemini_api_key FROM usuarios WHERE id = ?", (usuario_id,))
-        res_key = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        
-        session.permanent = True
-        session['usuario_id'] = usuario_id
-        session['usuario_nombre'] = nombre
-        if res_key and res_key.get('gemini_api_key'):
-            session['usuario_api_key'] = res_key['gemini_api_key']
-        else:
-            session.pop('usuario_api_key', None)
-            
+        # Lógica de validación de credenciales locales
+        session['usuario'] = nombre
         return redirect(url_for('index'))
-    except Exception as e:
-        flash(f"Error en el callback de Google: {str(e)}", "error")
-        return redirect(url_for('login'))
+    return render_template('login.html')
 
 @app.route('/registro', methods=['POST'])
 def registro():
     nombre = request.form.get('nombre')
     password = request.form.get('password')
-    peso = float(request.form.get('peso', 70.0))
-    entrenamientos = int(request.form.get('entrenamientos_semanales', 5))
-    deficit = int(request.form.get('deficit_calorico', -500))
+    peso = request.form.get('peso')
+    entrenamientos = request.form.get('entrenamientos_semanales')
+    deficit = request.form.get('deficit_calorico')
     
-    objetivo = "recomposicion" if -100 <= deficit <= 100 else ("definicion" if deficit < -100 else "volumen")
-    resultado = database.registrar_nuevo_usuario(nombre, password, peso, entrenamientos, objetivo, deficit)
+    # Aquí podés guardar los datos en tu base de datos o archivo de almacenamiento
+    session['usuario'] = nombre
+    return redirect(url_for('index'))
+
+@app.route('/login/google')
+def login_google():
+    if not GOOGLE_CLIENT_ID:
+        return "Error: GOOGLE_CLIENT_ID no está configurado en las variables de entorno (.env).", 500
     
-    if resultado.get('status') == 'success':
-        usuario = database.verificar_credenciales(nombre, password)
-        if usuario:
-            session.permanent = True  
-            session['usuario_id'] = usuario['id']
-            session['usuario_nombre'] = usuario['nombre']
-            session['usuario_api_key'] = usuario.get('gemini_api_key')
-            return redirect(url_for('index'))
-        
-    flash(f"Error: {resultado.get('message')}", "error")
-    return redirect(url_for('login'))
+    redirect_uri = url_for('authorize_google', _external=True)
+    google_auth_url = (
+        f"https://accounts.google.com/o/oauth2/v2/auth?"
+        f"client_id={GOOGLE_CLIENT_ID}&"
+        f"redirect_uri={redirect_uri}&"
+        f"response_type=code&"
+        f"scope=openid%20email%20profile"
+    )
+    return redirect(google_auth_url)
 
-@app.route('/ingreso', methods=['POST'])
-def ingreso():
-    if 'usuario_id' not in session:
-        return jsonify({'status': 'error', 'message': 'Sesión expirada.'}), 401
-        
-    usuario_id = session['usuario_id']
-    data = request.get_json(silent=True) or request.form
-    descripcion = data.get('descripcion', '').strip()
+@app.route('/login/google/callback')
+def authorize_google():
+    code = request.args.get('code')
+    if not code:
+        return "Error: No se recibió el código de autorización de Google.", 400
     
-    if not descripcion:
-        return jsonify({'status': 'error', 'message': 'Mensaje vacío.'}), 400
-        
-    user_api_key = session.get('usuario_api_key')
+    redirect_uri = url_for('authorize_google', _external=True)
     
-    if not user_api_key:
-        return jsonify({'status': 'revoked', 'message': 'No hay API Key activa.'}), 401
-
-    try:
-        user_data = obtener_datos_atleta_local(usuario_id)
-        peso_cliente = user_data.get('peso_kg', 70.0)
-        entrenamientos_cliente = user_data.get('entrenamientos_semanales', 5)
-        deficit_cliente = user_data.get('deficit_objetivo_kcal', -500)
-        objetivo_cliente = user_data.get('objetivo', 'definicion')
-        
-        client = genai.Client(api_key=user_api_key)
-        
-        instruccion_sistema = (
-            f"Eres un asistente profesional de nutrición y rendimiento deportivo, directo, objetivo y basado en datos empíricos. "
-            f"El perfil técnico del usuario actual cargado en la base de datos es: peso {peso_cliente}kg, "
-            f"nivel de entrenamiento de {entrenamientos_cliente} veces por semana, objetivo principal '{objetivo_cliente}' "
-            f"con una meta de ajuste calórico de {deficit_cliente} kcal.\n\n"
-            f"Tu tarea es mantener una interacción fluida, precisa y analítica. Si el usuario reporta consumo de alimentos, "
-            f"calcula con precisión matemática sus macros y calorías basándote en porciones estándar y composición nutricional real, "
-            f"devolviendo estrictamente un JSON con las claves:\n"
-            f"- 'alimentos': lista de objetos con (descripcion, peso [número puro en gramos], calorias, proteinas, carbohidratos, grasas).\n"
-            f"- 'respuesta_chat': texto analítico, directo y objetivo con el desglose del impacto en el balance diario.\n"
-            f"Si se trata de una consulta general o simulación, deja la lista 'alimentos' vacía y responde de forma directa."
-        )
-
-        response = client.models.generate_content(
-            model="gemini-3.1-flash-lite",
-            contents=descripcion,
-            config=types.GenerateContentConfig(
-                system_instruction=instruccion_sistema,
-                response_mime_type="application/json"
-            )
-        )
-        
-        resultado_ia = json.loads(response.text)
-        alimentos = resultado_ia.get('alimentos', [])
-        alimentos_procesados = []
-
-        if alimentos and isinstance(alimentos, list):
-            conn = database.obtener_conexion()
-            cursor = conn.cursor()
-            for item in alimentos:
-                desc = str(item.get('descripcion') or 'Alimento')
-                p_gr = parse_float_seguro(item.get('peso'))
-                kcal = parse_float_seguro(item.get('calorias'))
-                prot = parse_float_seguro(item.get('proteinas'))
-                carb = parse_float_seguro(item.get('carbohidratos'))
-                grasa = parse_float_seguro(item.get('grasas'))
-                
-                cursor.execute("""
-                    INSERT INTO registros_comidas (descripcion, peso, calorias, proteinas, carbohidratos, grasas, timestamp, usuario_id)
-                    VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), ?)
-                """, (desc, p_gr, kcal, prot, carb, grasa, usuario_id))
-                
-                alimentos_procesados.append({
-                    'id': cursor.lastrowid, 'descripcion': desc, 'calorias': kcal, 
-                    'proteinas': prot, 'carbohidratos': carb, 'grasas': grasa, 'timestamp': 'Justo ahora'
-                })
-            conn.commit()
-            cursor.close()
-            conn.close()
-
-        totales_sincronizados = obtener_totales_sincronizados(usuario_id)
-
-        return jsonify({
-            'status': 'success',
-            'respuesta_ia': resultado_ia.get('respuesta_chat', ''),
-            'nuevos_alimentos': alimentos_procesados,
-            'totales': totales_sincronizados
-        })
-        
-    except Exception as e:
-        error_msg = str(e).lower()
-        if any(k in error_msg for k in ['429', 'quota', 'resource_exhausted']):
-            return jsonify({'status': 'quota', 'message': 'Límite de cuota o saturación del servidor.'}), 429
-        elif any(k in error_msg for k in ['400', '401', '403', 'api_key', 'api key', 'invalid', 'unauthorized', 'permission_denied', 'revoked']):
-            database.actualizar_gemini_key(usuario_id, "")
-            session.pop('usuario_api_key', None)
-            return jsonify({'status': 'revoked', 'message': 'API Key revocada, inválida o faltante.'}), 401
-            
-        return jsonify({'status': 'error', 'message': f'Error del servidor: {str(e)}'}), 500
-
-@app.route('/guardar_api_key', methods=['POST'])
-def guardar_api_key():
-    usuario_id = session.get('usuario_id')
-    if not usuario_id:
-        return jsonify({'status': 'error', 'message': 'Sesión desautorizada.'}), 401
+    token_url = "https://oauth2.googleapis.com/token"
+    token_data = {
+        "code": code,
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code"
+    }
     
-    data = request.get_json()
-    api_key_real = data.get('gemini_api_key', '').strip()
+    token_r = requests.post(token_url, data=token_data)
+    token_json = token_r.json()
     
-    if len(api_key_real) < 15:
-        return jsonify({'status': 'error', 'message': 'La clave ingresada es demasiado corta para ser válida.'}), 400
+    if "access_token" not in token_json:
+        return f"Error al obtener el token de Google: {token_json}", 400
         
-    try:
-        client = genai.Client(api_key=api_key_real)
-        client.models.generate_content(
-            model="gemini-3.1-flash-lite",
-            contents="ok"
-        )
-    except Exception as e:
-        error_msg = str(e).lower()
-        if '429' in error_msg or 'quota' in error_msg:
-             return jsonify({'status': 'error', 'message': 'La clave es real, pero superó el límite de uso.'}), 400
-        return jsonify({'status': 'error', 'message': f'La API Key es inválida o fue rechazada. Detalle: {str(e)}'}), 400
-
-    exito = database.actualizar_gemini_key(usuario_id, api_key_real)
-    if exito:
-        session['usuario_api_key'] = api_key_real
-        return jsonify({'status': 'success', 'message': 'API Key verificada y vinculada.'})
-        
-    return jsonify({'status': 'error', 'message': 'Error interno al escribir en la base de datos.'}), 500
-
-@app.route('/borrar_comida/<int:comida_id>', methods=['POST', 'DELETE'])
-def borrar_comida(comida_id):
-    if 'usuario_id' not in session:
-        return jsonify({'status': 'error', 'message': 'No autorizado.'}), 401
-        
-    usuario_id = session['usuario_id']
-    conn = database.obtener_conexion()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM registros_comidas WHERE id = ? AND usuario_id = ?", (comida_id, usuario_id))
-    conn.commit()
-    cursor.close()
-    conn.close()
+    user_info_r = requests.get(
+        "https://www.googleapis.com/oauth2/v2/userinfo",
+        headers={"Authorization": f"Bearer {token_json['access_token']}"}
+    )
+    user_info = user_info_r.json()
     
-    totales_sincronizados = obtener_totales_sincronizados(usuario_id)
-    return jsonify({'status': 'success', 'totales': totales_sincronizados})
-
-@app.route('/actualizar_objetivos', methods=['POST'])
-def actualizar_objetivos():
-    usuario_id = session.get('usuario_id')
-    if not usuario_id:
-        return jsonify({'status': 'error', 'message': 'Sesión no válida.'}), 401
-        
-    data = request.get_json()
-    peso, entrenamientos, deficit_ingresado = float(data.get('peso', 70.0)), int(data.get('entrenamientos_semanales', 5)), int(data.get('deficit_calorico', -500))
-    objetivo = "recomposicion" if -100 <= deficit_ingresado <= 100 else ("definicion" if deficit_ingresado < -100 else "volumen")
+    # Asigna la sesión con los datos reales devueltos por Google
+    session['usuario'] = user_info.get('email')
+    session['nombre'] = user_info.get('name')
     
-    if modificar_perfil_atleta_local(usuario_id, peso, entrenamientos, objetivo, deficit_ingresado):
-        return jsonify({'status': 'success', 'message': 'Variables sincronizadas.'})
-    return jsonify({'status': 'error', 'message': 'Fallo en la base de datos.'}), 500
+    return redirect(url_for('index'))
 
 @app.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('login'))
+    return redirect(url_for('login_view'))
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(debug=True)
