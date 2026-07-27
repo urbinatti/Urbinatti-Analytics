@@ -49,6 +49,49 @@
         .btn { width: 100%; background: var(--primario); color: #fff; border: none; padding: 14px; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 10px; transition: background 0.2s; }
         .btn:hover { background: var(--primario-dark); }
         .btn.btn-registro { background: var(--acento-energia); }
+
+        /* Botón de Google */
+        .btn-google {
+            width: 100%;
+            background: #ffffff;
+            color: #334155;
+            border: 1px solid var(--borde);
+            padding: 13px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+            transition: background 0.2s, border-color 0.2s;
+            text-decoration: none;
+        }
+        .btn-google:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+
+        /* Divisor */
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 20px 0;
+            color: var(--texto-mutated);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid var(--borde);
+        }
+        .divider::before { margin-right: 10px; }
+        .divider::after { margin-left: 10px; }
         
         .footer-text { text-align: center; font-size: 13px; color: var(--texto-mutated); margin-top: 25px; }
         .link-toggle { color: var(--primario); font-weight: 700; cursor: pointer; }
@@ -67,6 +110,15 @@
     <div id="view-login">
         <h2>Ingresar al Sistema</h2>
         <p class="subtitle">Gestioná tu evolución física inteligente.</p>
+        
+        <!-- Botón Iniciar sesión con Google -->
+        <a href="/login/google" class="btn-google">
+            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.13 0-5.78-2.11-6.73-4.96H1.18v3.15C3.17 21.32 7.23 24 12 24z"/><path fill="#FBBC05" d="M5.27 14.24c-.25-.72-.38-1.49-.38-2.24s.13-1.52.38-2.24V6.61H1.18C.43 8.1 0 9.77 0 11.5s.43 3.4 1.18 4.89l4.09-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.23 0 3.17 2.68 1.18 6.61l4.09 3.15c.95-2.85 3.6-4.96 6.73-4.96z"/></svg>
+            Iniciar sesión con Google
+        </a>
+
+        <div class="divider">o con usuario</div>
+
         <form action="/login" method="POST">
             <div class="form-group">
                 <label>Nombre de Usuario</label>
@@ -85,6 +137,15 @@
     <div id="view-register" style="display: none;">
         <h2>Perfil de Atleta</h2>
         <p class="subtitle">Configurá tu balance energético inicial.</p>
+
+        <!-- Botón Registrarse con Google -->
+        <a href="/login/google" class="btn-google">
+            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.13 0-5.78-2.11-6.73-4.96H1.18v3.15C3.17 21.32 7.23 24 12 24z"/><path fill="#FBBC05" d="M5.27 14.24c-.25-.72-.38-1.49-.38-2.24s.13-1.52.38-2.24V6.61H1.18C.43 8.1 0 9.77 0 11.5s.43 3.4 1.18 4.89l4.09-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.23 0 3.17 2.68 1.18 6.61l4.09 3.15c.95-2.85 3.6-4.96 6.73-4.96z"/></svg>
+            Registrarse con Google
+        </a>
+
+        <div class="divider">o con tus datos</div>
+
         <form action="/registro" method="POST">
             <div class="form-row">
                 <div class="form-group">

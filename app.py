@@ -94,6 +94,12 @@ def obtener_totales_sincronizados(usuario_id):
         'carbohidratos': int(carbs_totales),
         'grasas': int(grasas_totales)
     }
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        return redirect(url_for('home'))
 
 @app.route('/')
 def index():
