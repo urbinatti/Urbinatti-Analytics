@@ -3,30 +3,35 @@ import requests
 from flask import Flask, render_template, request, redirect, url_for, session
 from dotenv import load_dotenv
 
-# Cargar variables de entorno desde el archivo .env
+# Cargar variables de entorno desde el archivo .env (que está oculto y no se sube a GitHub)
 load_dotenv()
 
 app = Flask(__name__)
-# La secret_key es obligatoria para que funcionen las sesiones de usuario
-app.secret_key = os.getenv("SECRET_KEY", "clave-secreta-urbinatti-2026")
 
-# Credenciales de Google OAuth (configuralas en tu archivo .env)
+# Se extrae estrictamente de la variable de entorno protegida
+app.secret_key = os.getenv("SECRET_KEY")
+if not app.secret_key:
+    raise RuntimeError("Falta configurar la SECRET_KEY en el archivo .env")
+
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
 @app.route('/')
 def index():
-    # Valida si el usuario está autenticado; si no, lo patea al login
     if 'usuario' not in session:
         return redirect(url_for('login_view'))
-    return render_template('index.html')
-
+    
+    # Objeto con los datos que la plantilla index.html está exigiendo
+    user_data = {
+        "peso_kg": 70
+    }
+    
+    return render_template('index.html', user_data=user_data)
 @app.route('/login', methods=['GET', 'POST'])
 def login_view():
     if request.method == 'POST':
         nombre = request.form.get('nombre')
         password = request.form.get('password')
-        # Lógica de validación de credenciales locales
         session['usuario'] = nombre
         return redirect(url_for('index'))
     return render_template('login.html')
@@ -39,14 +44,13 @@ def registro():
     entrenamientos = request.form.get('entrenamientos_semanales')
     deficit = request.form.get('deficit_calorico')
     
-    # Aquí podés guardar los datos en tu base de datos o archivo de almacenamiento
     session['usuario'] = nombre
     return redirect(url_for('index'))
 
 @app.route('/login/google')
 def login_google():
     if not GOOGLE_CLIENT_ID:
-        return "Error: GOOGLE_CLIENT_ID no está configurado en las variables de entorno (.env).", 500
+        return "Error: GOOGLE_CLIENT_ID no está configurado en las variables de entorno.", 500
     
     redirect_uri = url_for('authorize_google', _external=True)
     google_auth_url = (
@@ -87,7 +91,6 @@ def authorize_google():
     )
     user_info = user_info_r.json()
     
-    # Asigna la sesión con los datos reales devueltos por Google
     session['usuario'] = user_info.get('email')
     session['nombre'] = user_info.get('name')
     
