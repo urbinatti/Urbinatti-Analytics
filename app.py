@@ -6,9 +6,23 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 import database
 from google import genai
 from google.genai import types
+from authlib.integrations.flask_client import OAuth
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(24))
+
+# Configuración de OAuth con Google
+# Puedes configurar tus credenciales mediante variables de entorno o reemplazarlas directamente aquí abajo:
+oauth = OAuth(app)
+google = oauth.register(
+    name='google',
+    client_id=os.environ.get('GOOGLE_CLIENT_ID', 'TU_CLIENT_ID_AQUÍ'),
+    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET', 'TU_SECRET_AQUÍ'),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={
+        'scope': 'openid email profile'
+    }
+)
 
 def parse_float_seguro(val):
     if val is None:
@@ -146,6 +160,7 @@ def login():
         password = request.form.get('password')
         usuario = database.verificar_credenciales(nombre, password)
         if usuario:
+            session.permanent = True
             session['usuario_id'] = usuario['id']
             session['usuario_nombre'] = usuario['nombre']
             session['usuario_api_key'] = usuario.get('gemini_api_key')
@@ -154,6 +169,58 @@ def login():
             flash("Credenciales incorrectas o usuario inexistente.", "error")
             return render_template('login.html')
     return render_template('login.html')
+
+@app.route('/login/google')
+def login_google():
+    redirect_uri = url_for('authorize', _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+@app.route('/auth/google/callback')
+def authorize():
+    try:
+        token = google.authorize_access_token()
+        user_info = token.get('userinfo')
+        if not user_info:
+            flash("No se pudo autenticar con Google.", "error")
+            return redirect(url_for('login'))
+        
+        email = user_info.get('email')
+        nombre = user_info.get('name') or email.split('@')[0]
+        
+        conn = database.obtener_conexion()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM usuarios WHERE nombre = ?", (nombre,))
+        row = cursor.fetchone()
+        
+        if row:
+            usuario = dict(row)
+            usuario_id = usuario['id']
+        else:
+            # Si no existe, lo registramos automáticamente con valores por defecto
+            cursor.execute("""
+                INSERT INTO usuarios (nombre, password_hash, peso_kg, entrenamientos_semanales, objetivo, deficit_objetivo_kcal)
+                VALUES (?, ?, 70.0, 5, 'definicion', -500)
+            """, (nombre, secrets.token_hex(16)))
+            conn.commit()
+            usuario_id = cursor.lastrowid
+            
+        cursor.execute("SELECT gemini_api_key FROM usuarios WHERE id = ?", (usuario_id,))
+        res_key = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        session.permanent = True
+        session['usuario_id'] = usuario_id
+        session['usuario_nombre'] = nombre
+        if res_key and res_key.get('gemini_api_key'):
+            session['usuario_api_key'] = res_key['gemini_api_key']
+        else:
+            session.pop('usuario_api_key', None)
+            
+        return redirect(url_for('index'))
+    except Exception as e:
+        flash(f"Error en el callback de Google: {str(e)}", "error")
+        return redirect(url_for('login'))
 
 @app.route('/registro', methods=['POST'])
 def registro():
@@ -167,10 +234,9 @@ def registro():
     resultado = database.registrar_nuevo_usuario(nombre, password, peso, entrenamientos, objetivo, deficit)
     
     if resultado.get('status') == 'success':
-        # Autologin automático inmediato usando las credenciales recién creadas
         usuario = database.verificar_credenciales(nombre, password)
         if usuario:
-            session.permanent = True  # Mantiene la sesión persistente mediante cookies
+            session.permanent = True  
             session['usuario_id'] = usuario['id']
             session['usuario_nombre'] = usuario['nombre']
             session['usuario_api_key'] = usuario.get('gemini_api_key')
