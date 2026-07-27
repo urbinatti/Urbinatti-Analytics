@@ -11,13 +11,12 @@ from authlib.integrations.flask_client import OAuth
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(24))
 
-# Configuración de OAuth con Google
-# Puedes configurar tus credenciales mediante variables de entorno o reemplazarlas directamente aquí abajo:
+# Configuración de OAuth con Google (Segura mediante variables de entorno)
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
-    client_id=os.environ.get('GOOGLE_CLIENT_ID', 'TU_CLIENT_ID_AQUÍ'),
-    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET', 'TU_SECRET_AQUÍ'),
+    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
+    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
     client_kwargs={
         'scope': 'openid email profile'
