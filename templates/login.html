@@ -6,14 +6,14 @@
     <title>Urbinatti Analytics - Login</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="h-full flex flex-col items-center justify-center text-zinc-100 p-4">
-    <div class="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 flex flex-col items-center text-center shadow-xl space-y-8">
-        <div>
+<body class="h-full flex items-center justify-center text-zinc-100 p-4">
+    <div class="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-3xl p-8 flex flex-col items-center text-center shadow-2xl space-y-8">
+        <div class="space-y-2">
             <h1 class="text-3xl font-bold tracking-tight text-zinc-100">Urbinatti<br>Analytics</h1>
-            <p class="text-xs text-zinc-400 mt-2">Control nutricional inteligente y sin vueltas</p>
+            <p class="text-xs text-zinc-400">Control nutricional inteligente y sin vueltas</p>
         </div>
         
-        <a href="{{ url_for('login_google') }}" class="w-full bg-white hover:bg-zinc-100 text-zinc-900 font-medium py-3 px-4 rounded-xl flex items-center justify-center space-x-3 transition-colors shadow-md">
+        <a href="{{ url_for('login_google') }}" class="w-full bg-white hover:bg-zinc-100 text-zinc-900 font-medium py-3.5 px-4 rounded-2xl flex items-center justify-center space-x-3 transition-colors shadow-lg">
             <svg class="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
                 <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.95H1.2v3.15C3.18 21.32 7.24 24 12 24z"/>
