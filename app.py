@@ -3,16 +3,19 @@ import requests
 from flask import Flask, render_template, request, redirect, url_for, session
 from dotenv import load_dotenv
 from google import genai
+from datetime import timedelta
+load_dotenv()
 from database import (
     init_db, 
     obtener_usuario_por_email, 
     registrar_o_actualizar_usuario_google, 
-    guardar_datos_onboarding
+    guardar_datos_onboarding,
+    actualizar_gemini_key,
+    descifrar_key
 )
 
-load_dotenv()
-
 app = Flask(__name__)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1000)
 
 app.secret_key = os.getenv("SECRET_KEY")
 if not app.secret_key:
@@ -21,35 +24,31 @@ if not app.secret_key:
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
-# Inicializar la base de datos al arrancar
-init_db()
+with app.app_context():
+    init_db()
 
-def calcular_metricas_usuario(peso, altura, edad, sexo, dias_entreno, objetivo):
+def calcular_calorias_y_macros_por_objetivo(peso, altura, edad, sexo, dias_entreno, objetivo):
+    actividad = 1.55 if dias_entreno >= 4 else 1.375
+    
     if sexo.upper() == 'M':
-        bmr = (10 * peso) + (6.25 * altura) - (5 * edad) + 5
+        tmb = (10 * peso) + (6.25 * altura) - (5 * edad) + 5
     else:
-        bmr = (10 * peso) + (6.25 * altura) - (5 * edad) - 161
-    
-    if dias_entreno <= 1:
-        tdee = bmr * 1.2
-    elif dias_entreno <= 3:
-        tdee = bmr * 1.375
-    elif dias_entreno <= 5:
-        tdee = bmr * 1.55
+        tmb = (10 * peso) + (6.25 * altura) - (5 * edad) - 161
+
+    tdee = tmb * actividad
+
+    if objetivo == 'perdida_agresiva':
+        calorias_objetivo = tdee * 0.75  # -25%
+    elif objetivo == 'perdida_controlada':
+        calorias_objetivo = tdee * 0.85  # -15%
+    elif objetivo == 'volumen_limpio':
+        calorias_objetivo = tdee * 1.10  # +10%
+    elif objetivo == 'volumen_fuerte':
+        calorias_objetivo = tdee * 1.20  # +20%
     else:
-        tdee = bmr * 1.725
-        
-    ajustes = {
-        'perdida_agresiva': -750,
-        'perdida_controlada': -400,
-        'mantenimiento': 0,
-        'volumen_limpio': 300,
-        'volumen_fuerte': 600
-    }
-    
-    calorias_objetivo = tdee + ajustes.get(objetivo, 0)
-    
-    return int(round(bmr)), int(round(tdee)), int(round(calorias_objetivo))
+        calorias_objetivo = tdee  # Mantenimiento
+
+    return round(tdee), round(calorias_objetivo)
 
 @app.route('/')
 def index():
@@ -102,8 +101,11 @@ def authorize_google():
         "grant_type": "authorization_code"
     }
     
-    token_r = requests.post(token_url, data=token_data)
-    token_json = token_r.json()
+    try:
+        token_r = requests.post(token_url, data=token_data)
+        token_json = token_r.json()
+    except Exception as e:
+        return f"Error de conexión con Google Token API: {e}", 500
     
     if "access_token" not in token_json:
         return f"Error al obtener el token de Google: {token_json}", 400
@@ -117,6 +119,9 @@ def authorize_google():
     email = user_info.get('email')
     nombre = user_info.get('name')
     
+    if not email:
+        return "Error: Google no devolvió un email válido.", 400
+
     registrar_o_actualizar_usuario_google(email, nombre)
     
     session['usuario'] = email
@@ -132,7 +137,7 @@ def authorize_google():
 def onboarding():
     if 'usuario' not in session:
         return redirect(url_for('login_view'))
-        
+
     if request.method == 'POST':
         try:
             peso = float(request.form['peso_kg'])
@@ -142,15 +147,21 @@ def onboarding():
             dias_entreno = int(request.form['dias_entreno'])
             objetivo = request.form['objetivo']
             
-            _, _, calorias_objetivo = calcular_metricas_usuario(peso, altura, edad, sexo, dias_entreno, objetivo)
-            
+            tdee, calorias_objetivo = calcular_calorias_y_macros_por_objetivo(
+                peso, altura, edad, sexo, dias_entreno, objetivo
+            )
+
             email = session['usuario']
-            guardar_datos_onboarding(email, peso, altura, edad, sexo, dias_entreno, objetivo, calorias_objetivo)
-            
+            guardar_datos_onboarding(
+                email, peso, altura, edad, sexo, dias_entreno, objetivo, calorias_objetivo
+            )
+
             return redirect(url_for('index'))
-        except Exception as e:
-            return f"Error al procesar el onboarding: {e}", 400
             
+        except Exception as e:
+            print(f"Error detallado en onboarding: {e}")
+            return f"Error crítico al procesar el onboarding: {e}", 500
+
     return render_template('onboarding.html')
 
 @app.route('/configuracion', methods=['GET', 'POST'])
@@ -159,6 +170,7 @@ def configuracion():
         return redirect(url_for('login_view'))
         
     email = session['usuario']
+    usuario_actual = obtener_usuario_por_email(email)
     
     if request.method == 'POST':
         try:
@@ -167,21 +179,27 @@ def configuracion():
             edad = int(request.form['edad'])
             dias_entreno = int(request.form['dias_entreno'])
             objetivo = request.form['objetivo']
+            gemini_api_key = request.form.get('gemini_api_key', '').strip()
             
-            usuario_actual = obtener_usuario_por_email(email)
             sexo_biologico = usuario_actual.get('sexo', 'M')
             
-            _, _, calorias_objetivo = calcular_metricas_username if 'calcular_metricas_usuario' in globals() else calcular_metricas_usuario(peso, altura, edad, sexo_biologico, dias_entreno, objetivo)
-            _, _, calorias_objetivo = calcular_metricas_usuario(peso, altura, edad, sexo_biologico, dias_entreno, objetivo)
+            tdee, calorias_objetivo = calcular_calorias_y_macros_por_objetivo(
+                peso, altura, edad, sexo_biologico, dias_entreno, objetivo
+            )
             
-            guardar_datos_onboarding(email, peso, altura, edad, sexo_biologico, dias_entreno, objetivo, calorias_objetivo)
+            guardar_datos_onboarding(
+                email, peso, altura, edad, sexo_biologico, dias_entreno, objetivo, calorias_objetivo
+            )
+            
+            if gemini_api_key:
+                actualizar_gemini_key(email, gemini_api_key)
             
             return redirect(url_for('index'))
         except Exception as e:
+            print(f"Error al actualizar configuración: {e}")
             return f"Error al actualizar: {e}", 400
             
-    usuario = obtener_usuario_por_email(email)
-    return render_template('configuracion.html', user_data=usuario)
+    return render_template('configuracion.html', user_data=usuario_actual)
 
 @app.route('/chat', methods=['POST'])
 def chat_ia():
@@ -197,24 +215,30 @@ def chat_ia():
     email = session['usuario']
     usuario = obtener_usuario_por_email(email)
     
-    api_key = usuario.get('gemini_api_key')
+    # Variable en minúsculas
+    api_key_cifrada = usuario.get('gemini_api_key')
     
-    if not api_key or api_key.startswith('fit_live_'):
+    if not api_key_cifrada or api_key_cifrada.startswith('fit_live_'):
         return {"respuesta": "No tenés configurada tu API key personal de Gemini. Cargala en tu configuración para poder usar el chat."}
     
+    # Variable en minúsculas coincidiendo con la función
+    api_key_real = descifrar_key(api_key_cifrada)
+    
+    if not api_key_real:
+        return {"respuesta": "Error al descifrar la API key. Verificá tu configuración."}
+    
     try:
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(api_key=api_key_real)
         
         prompt = f"""
-        Eres un asistente nutricional estricto, crudo y objetivo. 
-        El usuario ha consumido el siguiente alimento o plato: "{mensaje_usuario}".
-        Calcula de forma realista las calorías, proteínas, carbohidratos y grasas. 
-        Si menciona "milanesa", recuerda usar el ratio de 48.5% carne real y 51.5% rebozado.
-        Devuelve la respuesta en formato de texto directo, claro y conciso indicando:
-        - Calorías estimadas
-        - Proteínas (g)
-        - Carbohidratos (g)
-        - Grasas (g)
+        Sos un asistente nutricional personal, estricto, crudo, realista y objetivo, sin proteger sentimientos ni buscar complacer.
+        El usuario pesa 70 kg, entrena 5 veces por semana y apunta a un déficit calórico eficiente.
+        
+        Reglas de comportamiento y negocio obligatorias:
+        1. **Manejo de Conversación General:** Si el mensaje del usuario es un saludo (como "hola"), una pregunta general o una charla que no implique la ingesta de un alimento, respondé con naturalidad manteniendo tu tono directo, objetivo y sin intentar calcular macros de algo que no es comida.
+        2. **Desglose Nutricional:** Si el usuario describe un alimento o plato, calculá de forma realista y objetiva las calorías, proteínas, carbohidratos y grasas. Presentá la información de forma estructurada y concisa.
+        
+        Mensaje del usuario: "{mensaje_usuario}"
         """
         
         response = client.models.generate_content(
@@ -225,12 +249,5 @@ def chat_ia():
         return {"respuesta": response.text}
         
     except Exception as e:
+        print(f"Error en chat IA: {e}")
         return {"respuesta": f"Error al procesar con la IA: {str(e)}"}
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('login_view'))
-
-if __name__ == '__main__':
-    app.run(debug=True)

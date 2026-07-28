@@ -1,70 +1,18 @@
-<!DOCTYPE html>
-<html lang="es" class="h-full bg-zinc-950">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Onboarding - Urbinatti Analytics</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="min-h-full py-8 px-4 flex items-center justify-center text-zinc-100">
-    <div class="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-6">
-        <div>
-            <h1 class="text-base font-bold text-zinc-100 uppercase tracking-wider">Onboarding (Paso 1)</h1>
-        </div>
-
-        <form action="{{ url_for('onboarding') }}" method="POST" class="space-y-4">
-            <div class="space-y-1">
-                <label class="block text-xs font-medium text-zinc-400">Peso actual (kg)</label>
-                <div class="relative flex items-center">
-                    <input type="number" step="0.1" name="peso_kg" value="68" required class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3.5 text-zinc-100 text-sm focus:outline-none focus:border-zinc-600">
-                    <span class="absolute right-4 text-xs text-zinc-500 pointer-events-none">kg</span>
+<!-- PASO 6: OBJETIVO -->
+            <div class="step-content" data-step="6">
+                <h2 class="text-2xl font-bold mb-2">¿Cuál es tu objetivo?</h2>
+                <p class="text-slate-400 text-sm mb-4">Seleccioná tu meta principal para calcular tus calorías objetivo.</p>
+                
+                <div class="space-y-4 mb-6">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase">Meta Principal</label>
+                        <select name="objetivo" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500">
+                            <option value="perdida_agresiva">Pérdida de peso agresiva (-25%)</option>
+                            <option value="perdida_controlada" selected>Pérdida de peso controlada (-15%)</option>
+                            <option value="mantenimiento">Mantenimiento / Recomposición</option>
+                            <option value="volumen_limpio">Aumento de masa muscular limpio (+10%)</option>
+                            <option value="volumen_fuerte">Aumento de peso / Volumen (+20%)</option>
+                        </select>
+                    </div>
                 </div>
             </div>
-
-            <div class="space-y-1">
-                <label class="block text-xs font-medium text-zinc-400">Altura (cm)</label>
-                <div class="relative flex items-center">
-                    <input type="number" name="altura_cm" value="175" required class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3.5 text-zinc-100 text-sm focus:outline-none focus:border-zinc-600">
-                    <span class="absolute right-4 text-xs text-zinc-500 pointer-events-none">cm</span>
-                </div>
-            </div>
-
-            <div class="space-y-1">
-                <label class="block text-xs font-medium text-zinc-400">Edad</label>
-                <div class="relative flex items-center">
-                    <input type="number" name="edad" value="29" required class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3.5 text-zinc-100 text-sm focus:outline-none focus:border-zinc-600">
-                    <span class="absolute right-4 text-xs text-zinc-500 pointer-events-none">años</span>
-                </div>
-            </div>
-
-            <div class="space-y-1">
-                <label class="block text-xs font-medium text-zinc-400">Sexo biológico</label>
-                <select name="sexo" required class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3.5 text-zinc-100 text-sm focus:outline-none focus:border-zinc-600">
-                    <option value="M">Masculino</option>
-                    <option value="F">Femenino</option>
-                </select>
-            </div>
-
-            <div class="space-y-1">
-                <label class="block text-xs font-medium text-zinc-400">Días de entrenamiento semanal</label>
-                <input type="number" min="0" max="7" name="dias_entreno" value="4" required class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3.5 text-zinc-100 text-sm focus:outline-none focus:border-zinc-600">
-            </div>
-
-            <div class="space-y-1">
-                <label class="block text-xs font-medium text-zinc-400">Objetivo actual</label>
-                <select name="objetivo" required class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3.5 text-zinc-100 text-sm focus:outline-none focus:border-zinc-600">
-                    <option value="perdida_agresiva">Pérdida de peso agresiva</option>
-                    <option value="perdida_controlada">Pérdida de peso controlada</option>
-                    <option value="mantenimiento">Mantenimiento / Recomposición</option>
-                    <option value="volumen_limpio">Aumento de masa muscular limpio</option>
-                    <option value="volumen_fuerte">Aumento de peso / Volumen</option>
-                </select>
-            </div>
-
-            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3.5 px-4 rounded-2xl transition-colors shadow-lg mt-2">
-                Siguiente
-            </button>
-        </form>
-    </div>
-</body>
-</html>

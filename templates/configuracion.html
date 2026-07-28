@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-zinc-950">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración - Urbinatti Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-full py-8 px-4 flex items-center justify-center text-zinc-100">
+    <div class="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-6">
+        <div class="flex items-center justify-between border-b border-zinc-800 pb-4">
+            <h1 class="text-lg font-bold text-zinc-100 tracking-tight">Configuración</h1>
+            <a href="{{ url_for('index') }}" class="text-xs text-zinc-400 hover:text-zinc-100">Volver</a>
+        </div>
+
+        <form action="{{ url_for('configuracion') }}" method="POST" class="space-y-4">
+            <div class="space-y-1">
+                <label class="block text-xs font-medium text-zinc-400">Peso (kg)</label>
+                <div class="relative flex items-center">
+                    <input type="number" step="0.1" name="peso_kg" value="{{ user_data.peso_kg }}" required class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 text-zinc-100 text-sm focus:outline-none focus:border-zinc-600">
+                    <span class="absolute right-4 text-xs text-zinc-500 pointer-events-none">kg</span>
+                </div>
+            </div>
+
+            <div class="space-y-1">
+                <label class="block text-xs font-medium text-zinc-400">Altura (cm)</label>
+                <div class="relative flex items-center">
+                    <input type="number" name="altura_cm" value="{{ user_data.altura_cm }}" required class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 text-zinc-100 text-sm focus:outline-none focus:border-zinc-600">
+                    <span class="absolute right-4 text-xs text-zinc-500 pointer-events-none">cm</span>
+                </div>
+            </div>
+
+            <div class="space-y-1">
+                <label class="block text-xs font-medium text-zinc-400">Edad</label>
+                <input type="number" name="edad" value="{{ user_data.edad }}" required class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 text-zinc-100 text-sm focus:outline-none focus:border-zinc-600">
+            </div>
+
+            <div class="space-y-1">
+                <label class="block text-xs font-medium text-zinc-400">Días de entrenamiento</label>
+                <input type="number" min="0" max="7" name="dias_entreno" value="{{ user_data.dias_entreno }}" required class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 text-zinc-100 text-sm focus:outline-none focus:border-zinc-600">
+                <span class="text-[10px] text-zinc-500">0-7 días</span>
+            </div>
+
+            <div class="space-y-1">
+                <label class="block text-xs font-medium text-zinc-400">Objetivo actual</label>
+                <select name="objetivo" required class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 text-zinc-100 text-sm focus:outline-none focus:border-zinc-600">
+                    <option value="perdida_agresiva" {% if user_data.objetivo == 'perdida_agresiva' %}selected{% endif %}>Pérdida de peso agresiva</option>
+                    <option value="perdida_controlada" {% if user_data.objetivo == 'perdida_controlada' %}selected{% endif %}>Pérdida de peso controlada</option>
+                    <option value="mantenimiento" {% if user_data.objetivo == 'mantenimiento' %}selected{% endif %}>Mantenimiento / Recomposición</option>
+                    <option value="volumen_limpio" {% if user_data.objetivo == 'volumen_limpio' %}selected{% endif %}>Aumento de masa muscular limpio</option>
+                    <option value="volumen_fuerte" {% if user_data.objetivo == 'volumen_fuerte' %}selected{% endif %}>Aumento de peso / Volumen</option>
+                </select>
+            </div>
+
+            <div class="space-y-1 pt-2 border-t border-zinc-800">
+                <label class="block text-xs font-medium text-zinc-400">API Key Personal de Gemini</label>
+                <input type="password" name="gemini_api_key" value="{{ user_data.gemini_api_key if user_data.gemini_api_key else '' }}" placeholder="AIzaSy..." class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 text-zinc-100 text-sm focus:outline-none focus:border-zinc-600">
+            </div>
+
+            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3.5 px-4 rounded-2xl transition-colors shadow-lg mt-4">
+                Actualizar métricas y recalcular
+            </button>
+        </form>
+    </div>
+</body>
+</html>

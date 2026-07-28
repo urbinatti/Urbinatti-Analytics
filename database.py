@@ -1,5 +1,33 @@
 import os
 import sqlite3
+import os
+from cryptography.fernet import Fernet
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Inicializamos el cifrador con la Llave Maestra del .env
+master_key = os.getenv("MASTER_KEY")
+if not master_key:
+    raise RuntimeError("Falta configurar la MASTER_KEY en el archivo .env")
+
+fernet = Fernet(master_key.encode())
+
+def cifrar_key(api_key):
+    """Toma la API key en texto plano y devuelve el texto cifrado."""
+    if not api_key:
+        return None
+    return fernet.encrypt(api_key.encode()).decode()
+
+def descifrar_key(api_key_cifrada):
+    """Toma la API key cifrada de la BD y la descifra en memoria RAM."""
+    if not api_key_cifrada:
+        return None
+    try:
+        return fernet.decrypt(api_key_cifrada.encode()).decode()
+    except Exception as e:
+        print(f"[ERROR DESCRIPTO]: {e}")
+        return None
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'analytics_urbinati.db')
@@ -98,11 +126,14 @@ def guardar_datos_onboarding(email, peso, altura, edad, sexo, dias_entreno, obje
         cursor.close()
         conn.close()
 
-def actualizar_gemini_key(email, api_key_real):
+def actualizar_gemini_key(email, api_key_plano):
     conn = obtener_conexion()
     cursor = conn.cursor()
     try:
-        cursor.execute("UPDATE usuarios SET gemini_api_key = ? WHERE email = ?", (api_key_real, email))
+        # Ciframos la key antes de meterla a la base de datos
+        api_key_cifrada = cifrar_key(api_key_plano)
+        
+        cursor.execute("UPDATE usuarios SET gemini_api_key = ? WHERE email = ?", (api_key_cifrada, email))
         conn.commit()
         return True
     except Exception as e:
