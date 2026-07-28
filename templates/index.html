@@ -139,7 +139,7 @@
             }
         });
 
-        // Lógica del Chat Flotante
+        // Lógica del Chat Flotante y conexión con la API
         const chatModal = document.getElementById('chat-modal');
         const openChatBtn = document.getElementById('open-chat');
         const closeChatBtn = document.getElementById('close-chat');
@@ -156,7 +156,6 @@
             chatModal.classList.add('hidden');
         });
 
-        // Cerrar haciendo clic fuera del modal en pantallas grandes
         chatModal.addEventListener('click', (e) => {
             if (e.target === chatModal) {
                 chatModal.classList.add('hidden');
@@ -166,24 +165,40 @@
         function agregarMensaje(texto, esUsuario = false) {
             const div = document.createElement('div');
             div.className = esUsuario 
-                ? "bg-emerald-600 text-white p-3 rounded-xl max-w-[85%] ml-auto" 
-                : "bg-zinc-800/50 text-zinc-300 p-3 rounded-xl max-w-[85%]";
+                ? "bg-emerald-600 text-white p-3 rounded-xl max-w-[85%] ml-auto whitespace-pre-wrap" 
+                : "bg-zinc-800/50 text-zinc-300 p-3 rounded-xl max-w-[85%] whitespace-pre-wrap";
             div.textContent = texto;
             chatMessages.appendChild(div);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        sendBtn.addEventListener('click', () => {
+        sendBtn.addEventListener('click', async () => {
             const texto = chatInput.value.trim();
             if (!texto) return;
 
             agregarMensaje(texto, true);
             chatInput.value = '';
 
-            // Simulación de respuesta automática del asistente
-            setTimeout(() => {
-                agregarMensaje("Comida registrada y macros actualizados correctamente.");
-            }, 800);
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = "bg-zinc-800/50 text-zinc-400 p-3 rounded-xl max-w-[85%] italic";
+            loadingDiv.textContent = "Calculando macros...";
+            chatMessages.appendChild(loadingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mensaje: texto })
+                });
+                
+                const data = await response.json();
+                chatMessages.removeChild(loadingDiv);
+                agregarMensaje(data.respuesta || "No se pudo obtener respuesta.");
+            } catch (error) {
+                chatMessages.removeChild(loadingDiv);
+                agregarMensaje("Error de conexión con el servidor.");
+            }
         });
 
         chatInput.addEventListener('keypress', (e) => {
