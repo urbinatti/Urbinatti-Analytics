@@ -1,318 +1,194 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="h-full bg-zinc-950">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Urbinatti Performance</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Urbinatti Analytics - Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        zinc: {
-                            950: '#09090b',
-                            900: '#18181b',
-                            800: '#27272a',
-                            700: '#3f3f46',
-                        },
-                        brand: {
-                            orange: '#f97316',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-zinc-950 text-zinc-100 flex flex-col h-screen overflow-hidden font-sans">
-
-    <!-- TOP HEADER -->
-    <header class="bg-zinc-900 border-b border-zinc-800 px-4 py-3 flex justify-between items-center shrink-0">
-        <div class="flex items-center space-x-2">
-            <span class="bg-brand-orange text-white text-xs font-bold px-2 py-1 rounded-lg">JU</span>
-            <h1 class="text-sm font-bold tracking-wider text-zinc-100">URBINATTI <span class="text-brand-orange font-normal">PERFORMANCE</span></h1>
-        </div>
-        <a href="/logout" class="text-zinc-400 hover:text-red-400 text-sm"><i class="fa-solid fa-power-off"></i></a>
-    </header>
-
-    <!-- MAIN VIEWS CONTAINER -->
-    <main class="flex-1 overflow-hidden relative pb-16">
+<body class="h-full flex flex-col justify-between text-zinc-100 p-4 sm:p-6 relative">
+    
+    <!-- Contenedor Principal -->
+    <div class="max-w-md w-full mx-auto space-y-6">
         
-        <!-- VISTA 1: DASHBOARD / CHAT -->
-        <section id="view-dashboard" class="absolute inset-0 flex flex-col bg-zinc-950 p-3 space-y-3 overflow-y-auto">
+        <!-- Cabecera -->
+        <header class="flex items-center justify-between">
+            <h1 class="text-lg font-bold uppercase tracking-wider text-zinc-100">
+                Hola, {{ user_data.nombre.split()[0] if user_data.nombre else 'Atleta' }}
+            </h1>
+            <a href="{{ url_for('configuracion') }}" class="p-2 bg-zinc-900 border border-zinc-800 rounded-xl hover:border-zinc-600 transition-colors">
+                <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+            </a>
+        </header>
+
+        <!-- Bloque Central: Gráfico Donut de Calorías -->
+        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col items-center relative shadow-lg">
+            <div class="w-48 h-48 relative flex items-center justify-center">
+                <canvas id="calorieChart"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span class="text-2xl font-bold text-zinc-100">1850 kcal</span>
+                    <span class="text-xs text-zinc-400">de {{ user_data.calorias_objetivo }} kcal</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bloque Inferior: Barras de Macros -->
+        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4 shadow-lg">
+            <h2 class="text-sm font-semibold text-zinc-300">Macros</h2>
             
-            <!-- TARJETAS DE MACROS SUPERIORES -->
-            <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 shrink-0 grid grid-cols-4 gap-2 text-center">
-                <div class="bg-zinc-950 p-2 rounded-xl border border-zinc-800/60">
-                    <span class="text-[10px] text-zinc-400 uppercase tracking-wider block">Kcal</span>
-                    <span id="val-calorias" class="text-xs font-bold text-brand-orange">{{ calorias_totales }}</span>
-                    <span class="text-[9px] text-zinc-500 block">/ {{ meta_calorias }}</span>
+            <div class="space-y-1">
+                <div class="flex justify-between text-xs">
+                    <span class="text-zinc-400">Proteínas</span>
+                    <span class="text-zinc-100">140g / 160g</span>
                 </div>
-                <div class="bg-zinc-950 p-2 rounded-xl border border-zinc-800/60">
-                    <span class="text-[10px] text-zinc-400 uppercase tracking-wider block">Proteína</span>
-                    <span id="val-proteinas" class="text-xs font-bold text-blue-400">{{ proteina_total }}g</span>
-                    <span class="text-[9px] text-zinc-500 block">/ {{ meta_proteina }}g</span>
-                </div>
-                <div class="bg-zinc-950 p-2 rounded-xl border border-zinc-800/60">
-                    <span class="text-[10px] text-zinc-400 uppercase tracking-wider block">Carbos</span>
-                    <span id="val-carbs" class="text-xs font-bold text-emerald-400">{{ carbs_totales }}g</span>
-                </div>
-                <div class="bg-zinc-950 p-2 rounded-xl border border-zinc-800/60">
-                    <span class="text-[10px] text-zinc-400 uppercase tracking-wider block">Grasas</span>
-                    <span id="val-grasas" class="text-xs font-bold text-amber-400">{{ grasas_totales }}g</span>
+                <div class="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-800">
+                    <div class="bg-emerald-500 h-full rounded-full" style="width: 87.5%;"></div>
                 </div>
             </div>
 
-            <!-- CONTENEDOR DE CHAT Y REGISTRO -->
-            <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 flex-1 flex flex-col min-h-[220px]">
-                <div class="flex items-center space-x-2 pb-2 border-b border-zinc-800 mb-2">
-                    <i class="fa-solid fa-comments text-brand-orange text-xs"></i>
-                    <h2 class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Asistente & Registro</h2>
+            <div class="space-y-1">
+                <div class="flex justify-between text-xs">
+                    <span class="text-zinc-400">Carbohidratos</span>
+                    <span class="text-zinc-100">140g / 223g</span>
                 </div>
-                
-                <div id="chat-container" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
-                    {% if not tiene_api_key %}
-                    <!-- BANNER DE ONBOARDING DIRECTO -->
-                    <div class="bg-orange-500/10 border border-orange-500/30 text-orange-200 rounded-xl p-3.5 space-y-2">
-                        <p class="font-bold text-brand-orange flex items-center gap-1.5 text-sm">
-                            <i class="fa-solid fa-lock"></i> Acción Requerida: API Key Faltante
-                        </p>
-                        <p class="text-zinc-300 text-xs leading-relaxed">
-                            Para usar a Koko, generá tu clave gratis e ingrésala en Ajustes:
-                        </p>
-                        <ol class="list-decimal list-inside space-y-1 text-zinc-300 text-[11px] pl-1">
-                            <li>Entrá directo a <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-brand-orange underline font-semibold">Google AI Studio - Crear API Key</a>.</li>
-                            <li>Copiá tu clave y pegala abajo en Ajustes.</li>
-                        </ol>
-                        <button onclick="switchView('perfil')" class="w-full mt-2 bg-brand-orange hover:bg-orange-600 text-white py-2 rounded-lg font-semibold transition text-xs flex items-center justify-center gap-1.5">
-                            <i class="fa-solid fa-gear"></i> Ir a Ajustes a Pegarla
-                        </button>
-                    </div>
-                    {% else %}
-                    <div class="bg-zinc-800/60 border border-zinc-700/50 text-zinc-200 rounded-xl p-2.5 max-w-[90%]">
-                        <p class="font-semibold text-brand-orange mb-0.5">🤖 Koko, el asistente AI</p>
-                        <p>Escribime qué comiste o consultame lo que necesites.</p>
-                    </div>
-                    {% endif %}
-                </div>
-
-                <!-- FORMULARIO DE CHAT -->
-                <form id="chat-form" class="mt-2 flex gap-2 shrink-0 pt-2 border-t border-zinc-800">
-                    <input type="text" id="mensaje-input" 
-                        {% if not tiene_api_key %}disabled placeholder="🔒 Configura tu API Key en Ajustes..."{% else %}placeholder="Ej: Comí 200g de pollo..."{% endif %} 
-                        autocomplete="off"
-                        class="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-brand-orange text-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed">
-                    <button type="submit" id="btn-enviar" {% if not tiene_api_key %}disabled{% endif %} class="bg-brand-orange hover:bg-orange-600 text-white px-4 rounded-xl font-medium transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
-                        <i class="fa-solid fa-paper-plane text-xs"></i>
-                    </button>
-                </form>
-            </div>
-
-            <!-- HISTORIAL DE HOY -->
-            <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 shrink-0">
-                <h3 class="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Historial de Hoy</h3>
-                <div id="lista-comidas" class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                    {% if not registros %}
-                    <p class="text-zinc-500 text-xs text-center py-2">Sin registros hoy.</p>
-                    {% endif %}
-                    {% for reg in registros %}
-                    <div class="bg-zinc-950 border border-zinc-800/80 rounded-xl p-2 flex justify-between items-center text-xs" id="comida-{{ reg.id }}">
-                        <div>
-                            <p class="font-medium text-zinc-200">{{ reg.descripcion }}</p>
-                            <p class="text-[10px] text-zinc-400">{{ reg.calorias }} kcal • P: {{ reg.proteinas }}g | C: {{ reg.carbohidratos }}g | G: {{ reg.grasas }}g</p>
-                        </div>
-                        <button onclick="borrarComida({{ reg.id }})" class="text-zinc-600 hover:text-red-400 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
-                    </div>
-                    {% endfor %}
+                <div class="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-800">
+                    <div class="bg-emerald-500 h-full rounded-full" style="width: 62.7%;"></div>
                 </div>
             </div>
-        </section>
 
-        <!-- VISTA 2: CONFIGURACIÓN DE METAS / PERFIL -->
-        <section id="view-perfil" class="absolute inset-0 flex flex-col bg-zinc-950 p-4 overflow-y-auto hidden space-y-4">
-            <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 shadow space-y-3">
-                <h2 class="text-xs font-semibold text-brand-orange uppercase tracking-wider">Configuración de Metas</h2>
-                <form id="form-objetivos" class="space-y-3 text-xs">
-                    <div>
-                        <label class="text-zinc-400 block mb-1">Peso (kg)</label>
-                        <input type="number" step="0.1" id="input-peso" value="{{ user_data.peso_kg }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-100">
-                    </div>
-                    <div>
-                        <label class="text-zinc-400 block mb-1">Días de Gym</label>
-                        <input type="number" id="input-dias" value="{{ user_data.entrenamientos_semanales }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-100">
-                    </div>
-                    <div>
-                        <label class="text-zinc-400 block mb-1">Déficit Calórico Objetivo (kcal)</label>
-                        <input type="number" id="input-deficit" value="{{ user_data.deficit_objetivo_kcal }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-100">
-                    </div>
-                    <button type="submit" class="w-full bg-brand-orange hover:bg-orange-600 text-white py-3 rounded-xl font-medium transition">Reajustar Parámetros</button>
-                </form>
+            <div class="space-y-1">
+                <div class="flex justify-between text-xs">
+                    <span class="text-zinc-400">Grasas</span>
+                    <span class="text-zinc-100">50g / 71g</span>
+                </div>
+                <div class="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-800">
+                    <div class="bg-emerald-500 h-full rounded-full" style="width: 70.4%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VENTANA FLOTANTE DEL CHAT (Oculta por defecto) -->
+    <div id="chat-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
+        <div class="bg-zinc-900 border border-zinc-800 w-full max-w-lg h-[80vh] sm:h-[500px] rounded-t-2xl sm:rounded-2xl flex flex-col shadow-2xl overflow-hidden">
+            
+            <!-- Cabecera del Chat -->
+            <div class="p-4 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <div class="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+                    <span class="text-sm font-bold text-zinc-100">Asistente Nutricional</span>
+                </div>
+                <button id="close-chat" class="text-zinc-400 hover:text-zinc-100 p-1">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
             </div>
 
-            <!-- API Key config -->
-            <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 shadow space-y-3 text-xs">
-                <h2 class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">API Key de Gemini</h2>
-                <form id="form-apikey" class="space-y-3">
-                    <input type="password" id="input-apikey" placeholder="Pegá tu clave..." class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-100">
-                    <button type="submit" class="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 py-3 rounded-xl font-medium transition">Actualizar Clave</button>
-                </form>
+            <!-- Cuerpo de Mensajes -->
+            <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3 text-sm">
+                <div class="bg-zinc-800/50 p-3 rounded-xl max-w-[85%] text-zinc-300">
+                    ¡Hola! Escribime acá lo que comiste o querés registrar (ej: "200g de pollo con ensalada") y lo calculo al instante.
+                </div>
             </div>
-        </section>
 
-    </main>
+            <!-- Input de Texto -->
+            <div class="p-3 bg-zinc-950 border-t border-zinc-800 flex items-center space-x-2">
+                <input type="text" id="chat-input" placeholder="Escribe tu alimento..." class="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-100 text-sm focus:outline-none focus:border-zinc-600">
+                <button id="send-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-3 rounded-xl font-medium transition-colors">
+                    Enviar
+                </button>
+            </div>
+        </div>
+    </div>
 
-    <!-- BOTTOM NAVIGATION BAR -->
-    <nav class="bg-zinc-900 border-t border-zinc-800 h-16 flex justify-around items-center shrink-0 fixed bottom-0 left-0 right-0 z-50">
-        <button onclick="switchView('dashboard')" id="nav-dashboard" class="flex flex-col items-center text-brand-orange transition flex-1 py-1">
-            <i class="fa-solid fa-house text-base"></i>
-            <span class="text-[10px] mt-1 font-medium">Panel</span>
+    <!-- Botón Flotante (FAB) -->
+    <div class="fixed bottom-6 right-6 z-40">
+        <button id="open-chat" class="w-14 h-14 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-2xl transition-transform active:scale-95">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+            </svg>
         </button>
-        <button onclick="switchView('perfil')" id="nav-perfil" class="flex flex-col items-center text-zinc-500 hover:text-zinc-300 transition flex-1 py-1">
-            <i class="fa-solid fa-user-gear text-base"></i>
-            <span class="text-[10px] mt-1 font-medium">Ajustes</span>
-        </button>
-    </nav>
+    </div>
 
-    <!-- JAVASCRIPT -->
+    <!-- Scripts de Interacción y Gráfico -->
     <script>
-        function switchView(view) {
-            document.getElementById('view-dashboard').classList.add('hidden');
-            document.getElementById('view-perfil').classList.add('hidden');
-
-            document.getElementById('nav-dashboard').className = "flex flex-col items-center text-zinc-500 hover:text-zinc-300 transition flex-1 py-1";
-            document.getElementById('nav-perfil').className = "flex flex-col items-center text-zinc-500 hover:text-zinc-300 transition flex-1 py-1";
-
-            document.getElementById('view-' + view).classList.remove('hidden');
-            document.getElementById('nav-' + view).className = "flex flex-col items-center text-brand-orange transition flex-1 py-1";
-        }
-
-        const chatForm = document.getElementById('chat-form');
-        const mensajeInput = document.getElementById('mensaje-input');
-        const chatContainer = document.getElementById('chat-container');
-
-        if (chatForm) {
-            chatForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const texto = mensajeInput.value.trim();
-                if (!texto) return;
-
-                chatContainer.innerHTML += `
-                    <div class="flex justify-end my-1">
-                        <div class="bg-brand-orange/20 border border-brand-orange/40 text-orange-100 rounded-xl p-2.5 max-w-[90%] text-xs">
-                            <p>${texto}</p>
-                        </div>
-                    </div>
-                `;
-                mensajeInput.value = '';
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-
-                try {
-                    const res = await fetch('/ingreso', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ descripcion: texto })
-                    });
-                    const data = await res.json();
-
-                    if (data.status === 'success') {
-                        chatContainer.innerHTML += `
-                            <div class="bg-zinc-800/60 border border-zinc-700/50 text-zinc-200 rounded-xl p-2.5 max-w-[90%] my-1 text-xs">
-                                <p class="font-semibold text-brand-orange mb-0.5">🤖 Koko, el asistente AI</p>
-                                <p>${data.respuesta_ia}</p>
-                            </div>
-                        `;
-                        document.getElementById('val-calorias').innerText = data.totales.calorias;
-                        document.getElementById('val-proteinas').innerText = data.totales.proteinas + 'g';
-                        document.getElementById('val-carbs').innerText = data.totales.carbohidratos + 'g';
-                        document.getElementById('val-grasas').innerText = data.totales.grasas + 'g';
-
-                        if (data.nuevos_alimentos && data.nuevos_alimentos.length > 0) {
-                            const lista = document.getElementById('lista-comidas');
-                            data.nuevos_alimentos.forEach(item => {
-                                lista.innerHTML += `
-                                    <div class="bg-zinc-950 border border-zinc-800/80 rounded-xl p-2 flex justify-between items-center text-xs my-1" id="comida-${item.id}">
-                                        <div>
-                                            <p class="font-medium text-zinc-200">${item.descripcion}</p>
-                                            <p class="text-[10px] text-zinc-400">${item.calorias} kcal • P: ${item.proteinas}g | C: ${item.carbohidratos}g | G: ${item.grasas}g</p>
-                                        </div>
-                                        <button onclick="borrarComida(${item.id})" class="text-zinc-600 hover:text-red-400 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
-                                    </div>
-                                `;
-                            });
-                        }
-                    } else if (data.status === 'revoked' || res.status === 401) {
-                        // Inyectar el banner estético directamente en el chat en lugar de texto plano
-                        chatContainer.innerHTML += `
-                            <div class="bg-orange-500/10 border border-orange-500/30 text-orange-200 rounded-xl p-3.5 space-y-2 my-2">
-                                <p class="font-bold text-brand-orange flex items-center gap-1.5 text-sm">
-                                    <i class="fa-solid fa-lock"></i> API Key Inválida o Revocada
-                                </p>
-                                <p class="text-zinc-300 text-xs leading-relaxed">
-                                    Tu clave actual no es válida. Generá una nueva en un clic:
-                                </p>
-                                <ol class="list-decimal list-inside space-y-1 text-zinc-300 text-[11px] pl-1">
-                                    <li>Entrá directo a <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-brand-orange underline font-semibold">Google AI Studio - Crear API Key</a>.</li>
-                                    <li>Copiá la clave y pegala abajo en Ajustes.</li>
-                                </ol>
-                                <button onclick="switchView('perfil')" class="w-full mt-2 bg-brand-orange hover:bg-orange-600 text-white py-2 rounded-lg font-semibold transition text-xs flex items-center justify-center gap-1.5">
-                                    <i class="fa-solid fa-gear"></i> Ir a Ajustes a Pegarla
-                                </button>
-                            </div>
-                        `;
-                        mensajeInput.disabled = true;
-                        mensajeInput.placeholder = "🔒 Configura tu API Key en Ajustes...";
-                        document.getElementById('btn-enviar').disabled = true;
-                    } else {
-                        chatContainer.innerHTML += `<div class="text-red-400 text-xs my-1">Error: ${data.message}</div>`;
-                    }
-                } catch (err) {
-                    chatContainer.innerHTML += `<div class="text-red-400 text-xs my-1">Error de red.</div>`;
+        // Configuración del Gráfico Donut
+        const ctx = document.getElementById('calorieChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [1850, Math.max(0, {{ user_data.calorias_objetivo }} - 1850)],
+                    backgroundColor: ['#10b981', '#27272a'],
+                    borderWidth: 0,
+                    cutout: '80%'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false }
                 }
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-            });
-        }
-
-        async function borrarComida(id) {
-            const res = await fetch('/borrar_comida/' + id, { method: 'POST' });
-            const data = await res.json();
-            if (data.status === 'success') {
-                const el = document.getElementById('comida-' + id);
-                if (el) el.remove();
-                document.getElementById('val-calorias').innerText = data.totales.calorias;
-                document.getElementById('val-proteinas').innerText = data.totales.proteinas + 'g';
-                document.getElementById('val-carbs').innerText = data.totales.carbohidratos + 'g';
-                document.getElementById('val-grasas').innerText = data.totales.grasas + 'g';
             }
-        }
-
-        document.getElementById('form-objetivos').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const res = await fetch('/actualizar_objetivos', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    peso: document.getElementById('input-peso').value,
-                    entrenamientos_semanales: document.getElementById('input-dias').value,
-                    deficit_calorico: document.getElementById('input-deficit').value
-                })
-            });
-            const data = await res.json();
-            alert(data.message);
         });
 
-        document.getElementById('form-apikey').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const res = await fetch('/guardar_api_key', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ gemini_api_key: document.getElementById('input-apikey').value })
-            });
-            const data = await res.json();
-            alert(data.message);
-            if (data.status === 'success') {
-                window.location.reload();
+        // Lógica del Chat Flotante
+        const chatModal = document.getElementById('chat-modal');
+        const openChatBtn = document.getElementById('open-chat');
+        const closeChatBtn = document.getElementById('close-chat');
+        const sendBtn = document.getElementById('send-btn');
+        const chatInput = document.getElementById('chat-input');
+        const chatMessages = document.getElementById('chat-messages');
+
+        openChatBtn.addEventListener('click', () => {
+            chatModal.classList.remove('hidden');
+            chatInput.focus();
+        });
+
+        closeChatBtn.addEventListener('click', () => {
+            chatModal.classList.add('hidden');
+        });
+
+        // Cerrar haciendo clic fuera del modal en pantallas grandes
+        chatModal.addEventListener('click', (e) => {
+            if (e.target === chatModal) {
+                chatModal.classList.add('hidden');
+            }
+        });
+
+        function agregarMensaje(texto, esUsuario = false) {
+            const div = document.createElement('div');
+            div.className = esUsuario 
+                ? "bg-emerald-600 text-white p-3 rounded-xl max-w-[85%] ml-auto" 
+                : "bg-zinc-800/50 text-zinc-300 p-3 rounded-xl max-w-[85%]";
+            div.textContent = texto;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        sendBtn.addEventListener('click', () => {
+            const texto = chatInput.value.trim();
+            if (!texto) return;
+
+            agregarMensaje(texto, true);
+            chatInput.value = '';
+
+            // Simulación de respuesta automática del asistente
+            setTimeout(() => {
+                agregarMensaje("Comida registrada y macros actualizados correctamente.");
+            }, 800);
+        });
+
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendBtn.click();
             }
         });
     </script>

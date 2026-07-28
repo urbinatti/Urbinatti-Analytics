@@ -1,7 +1,5 @@
 import os
 import sqlite3
-from werkzeug.security import generate_password_hash, check_password_hash
-import secrets
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'analytics_urbinati.db')
@@ -16,13 +14,16 @@ def init_db():
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS usuarios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
+            email TEXT PRIMARY KEY,
+            nombre TEXT,
             peso_kg REAL,
-            entrenamientos_semanales INTEGER,
+            altura_cm INTEGER,
+            edad INTEGER,
+            sexo TEXT,
+            dias_entreno INTEGER,
             objetivo TEXT,
-            deficit_objetivo_kcal INTEGER,
+            calorias_objetivo INTEGER,
+            onboarding_completado INTEGER DEFAULT 0,
             gemini_api_key TEXT
         )
     ''')
@@ -36,55 +37,72 @@ def init_db():
             carbohidratos REAL,
             grasas REAL,
             timestamp DATETIME,
-            usuario_id INTEGER
+            usuario_email TEXT,
+            FOREIGN KEY (usuario_email) REFERENCES usuarios(email)
         )
     ''')
     conn.commit()
     conn.close()
 
-def registrar_nuevo_usuario(nombre, password, peso, entrenamientos, objetivo, deficit):
+def obtener_usuario_por_email(email):
     conn = obtener_conexion()
     cursor = conn.cursor()
-    password_encriptada = generate_password_hash(password)
-    token_interno = f"fit_live_{secrets.token_hex(16)}"
-    
     try:
-        cursor.execute('''
-            INSERT INTO usuarios (nombre, password_hash, peso_kg, entrenamientos_semanales, objetivo, deficit_objetivo_kcal, gemini_api_key)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (nombre, password_encriptada, peso, entrenamientos, objetivo, deficit, token_interno))
-        conn.commit()
-        return {"status": "success", "message": "Usuario registrado con éxito"}
+        cursor.execute("SELECT * FROM usuarios WHERE email = ?", (email,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"[ERROR OBTENER USUARIO]: {e}")
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
+def registrar_o_actualizar_usuario_google(email, nombre):
+    conn = obtener_conexion()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT email, onboarding_completado FROM usuarios WHERE email = ?", (email,))
+        row = cursor.fetchone()
+        if not row:
+            cursor.execute('''
+                INSERT INTO usuarios (email, nombre, onboarding_completado)
+                VALUES (?, ?, 0)
+            ''', (email, nombre))
+            conn.commit()
+        return True
     except Exception as e:
         conn.rollback()
-        return {"status": "error", "message": f"El nombre de usuario ya existe o hubo un error: {str(e)}"}
+        print(f"[ERROR GOOGLE USER]: {e}")
+        return False
     finally:
         cursor.close()
         conn.close()
 
-def verificar_credenciales(nombre, password):
+def guardar_datos_onboarding(email, peso, altura, edad, sexo, dias_entreno, objetivo, calorias_objetivo):
     conn = obtener_conexion()
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT id, nombre, password_hash, gemini_api_key FROM usuarios WHERE nombre = ?", (nombre,))
-        row = cursor.fetchone()
-        if row:
-            usuario = dict(row)
-            if check_password_hash(usuario['password_hash'], password):
-                return usuario
-        return None
+        cursor.execute('''
+            UPDATE usuarios 
+            SET peso_kg = ?, altura_cm = ?, edad = ?, sexo = ?, dias_entreno = ?, objetivo = ?, calorias_objetivo = ?, onboarding_completado = 1
+            WHERE email = ?
+        ''', (peso, altura, edad, sexo, dias_entreno, objetivo, calorias_objetivo, email))
+        conn.commit()
+        return True
     except Exception as e:
-        print(f"[ERROR LOGIN]: {e}")
-        return None
+        conn.rollback()
+        print(f"[ERROR ONBOARDING]: {e}")
+        return False
     finally:
         cursor.close()
         conn.close()
 
-def actualizar_gemini_key(usuario_id, api_key_real):
+def actualizar_gemini_key(email, api_key_real):
     conn = obtener_conexion()
     cursor = conn.cursor()
     try:
-        cursor.execute("UPDATE usuarios SET gemini_api_key = ? WHERE id = ?", (api_key_real, usuario_id))
+        cursor.execute("UPDATE usuarios SET gemini_api_key = ? WHERE email = ?", (api_key_real, email))
         conn.commit()
         return True
     except Exception as e:
