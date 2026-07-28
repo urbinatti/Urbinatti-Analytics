@@ -1,8 +1,8 @@
 import os
 import requests
-from google import genai
 from flask import Flask, render_template, request, redirect, url_for, session
 from dotenv import load_dotenv
+from google import genai
 from database import (
     init_db, 
     obtener_usuario_por_email, 
@@ -50,52 +50,6 @@ def calcular_metricas_usuario(peso, altura, edad, sexo, dias_entreno, objetivo):
     calorias_objetivo = tdee + ajustes.get(objetivo, 0)
     
     return int(round(bmr)), int(round(tdee)), int(round(calorias_objetivo))
-
-@app.route('/chat', methods=['POST'])
-def chat_ia():
-    if 'usuario' not in session:
-        return {"error": "No autorizado"}, 401
-        
-    data = request.get_json()
-    mensaje_usuario = data.get('mensaje', '')
-    
-    if not mensaje_usuario:
-        return {"error": "Mensaje vacío"}, 400
-        
-    email = session['usuario']
-    usuario = obtener_usuario_por_email(email)
-    
-    # Extraer estrictamente la API key propia del usuario desde la base de datos
-    api_key = usuario.get('gemini_api_key')
-    
-    # Validar si el usuario cargó su key real (evitando el token interno por defecto)
-    if not api_key or api_key.startswith('fit_live_'):
-        return {"respuesta": "No tenés configurada tu API key personal de Gemini. Cargala en tu configuración para poder usar el chat."}
-    
-    try:
-        client = genai.Client(api_key=api_key)
-        
-        prompt = f"""
-        Eres un asistente nutricional estricto, crudo y objetivo. 
-        El usuario ha consumido el siguiente alimento o plato: "{mensaje_usuario}".
-        Calcula de forma realista las calorías, proteínas, carbohidratos y grasas. 
-        Si menciona "milanesa", recuerda usar el ratio de 48.5% carne real y 51.5% rebozado.
-        Devuelve la respuesta en formato de texto directo, claro y conciso indicando:
-        - Calorías estimadas
-        - Proteínas (g)
-        - Carbohidratos (g)
-        - Grasas (g)
-        """
-        
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
-        
-        return {"respuesta": response.text}
-        
-    except Exception as e:
-        return {"respuesta": f"Error al procesar con la IA: {str(e)}"}
 
 @app.route('/')
 def index():
@@ -217,6 +171,7 @@ def configuracion():
             usuario_actual = obtener_usuario_por_email(email)
             sexo_biologico = usuario_actual.get('sexo', 'M')
             
+            _, _, calorias_objetivo = calcular_metricas_username if 'calcular_metricas_usuario' in globals() else calcular_metricas_usuario(peso, altura, edad, sexo_biologico, dias_entreno, objetivo)
             _, _, calorias_objetivo = calcular_metricas_usuario(peso, altura, edad, sexo_biologico, dias_entreno, objetivo)
             
             guardar_datos_onboarding(email, peso, altura, edad, sexo_biologico, dias_entreno, objetivo, calorias_objetivo)
@@ -227,6 +182,50 @@ def configuracion():
             
     usuario = obtener_usuario_por_email(email)
     return render_template('configuracion.html', user_data=usuario)
+
+@app.route('/chat', methods=['POST'])
+def chat_ia():
+    if 'usuario' not in session:
+        return {"error": "No autorizado"}, 401
+        
+    data = request.get_json()
+    mensaje_usuario = data.get('mensaje', '')
+    
+    if not mensaje_usuario:
+        return {"error": "Mensaje vacío"}, 400
+        
+    email = session['usuario']
+    usuario = obtener_usuario_por_email(email)
+    
+    api_key = usuario.get('gemini_api_key')
+    
+    if not api_key or api_key.startswith('fit_live_'):
+        return {"respuesta": "No tenés configurada tu API key personal de Gemini. Cargala en tu configuración para poder usar el chat."}
+    
+    try:
+        client = genai.Client(api_key=api_key)
+        
+        prompt = f"""
+        Eres un asistente nutricional estricto, crudo y objetivo. 
+        El usuario ha consumido el siguiente alimento o plato: "{mensaje_usuario}".
+        Calcula de forma realista las calorías, proteínas, carbohidratos y grasas. 
+        Si menciona "milanesa", recuerda usar el ratio de 48.5% carne real y 51.5% rebozado.
+        Devuelve la respuesta en formato de texto directo, claro y conciso indicando:
+        - Calorías estimadas
+        - Proteínas (g)
+        - Carbohidratos (g)
+        - Grasas (g)
+        """
+        
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        
+        return {"respuesta": response.text}
+        
+    except Exception as e:
+        return {"respuesta": f"Error al procesar con la IA: {str(e)}"}
 
 @app.route('/logout')
 def logout():
