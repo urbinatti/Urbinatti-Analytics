@@ -8,7 +8,6 @@ import database
 load_dotenv()
 
 app = Flask(__name__)
-# BLINDAJE DE SESIÓN: Ahora usa una clave fija para que F5 no te cierre la sesión
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "clave_fija_super_segura_urbinati_2026")
 app.permanent_session_lifetime = timedelta(days=30)
 
@@ -102,7 +101,6 @@ def index():
     ''', (email, start_time, end_time))
     consumo = cursor.fetchone()
     
-    # EXTRAER EL HISTORIAL DE CHAT DEL DÍA (4 AM a 4 AM)
     cursor.execute('''
         SELECT rol, mensaje FROM historial_chat 
         WHERE usuario_email = ? AND timestamp >= ? AND timestamp < ?
@@ -299,10 +297,11 @@ def chat():
         return jsonify({'respuesta': '🔒 Falta configurar tu API Key. Generala en el botón de arriba y pegala en el campo correspondiente para chatear.'})
     
     try:
-        # 1. GUARDAR MENSAJE DEL USUARIO EN HISTORIAL
         conn2 = sqlite3.connect('database.db')
         conn2.row_factory = sqlite3.Row
         cursor2 = conn2.cursor()
+        
+        # 1. Guardar mensaje del usuario
         cursor2.execute('''
             INSERT INTO historial_chat (usuario_email, rol, mensaje, timestamp) 
             VALUES (?, ?, ?, ?)
@@ -311,6 +310,7 @@ def chat():
 
         client = genai.Client(api_key=api_key)
         
+        # Prompt mejorado con la instrucción de "deshacer"
         prompt = f"""
         Eres la IA central de "Urbinatti Analytics", un avanzado asistente nutricional.
 
@@ -318,24 +318,26 @@ def chat():
         - Nombre: {user['nombre']}
         - Peso: {user['peso_kg']} kg
         - Frecuencia de entreno: {user['dias_entreno']} días/sem.
-        - Objetivo general: {user['objetivo']} (Déficit objetivo: 500 a 1000 kcal si aplica).
+        - Objetivo general: {user['objetivo']}
         - Meta Diaria: {user['calorias_objetivo']} kcal (Prot: {user['proteinas_objetivo']}g, Carbs: {user['carbs_objetivo']}g, Grasas: {user['grasas_objetivo']}g)
         - Consumo HOY (hasta ahora): {consumo_actual['calorias_cons']} kcal (Prot: {consumo_actual['proteinas_cons']}g, Carbs: {consumo_actual['carbs_cons']}g, Grasas: {consumo_actual['grasas_cons']}g)
 
         REGLAS DE NEGOCIO Y COMPORTAMIENTO:
-        1. Charla vs Registro: Si el usuario solo saluda (ej. "Hola"), te hace una pregunta o pide proyecciones ("What-if"), responde de forma natural, inteligente y conversacional. En este caso, devuelve los valores numéricos como 0.0.
-        2. Tono: Directo, crudo, objetivo y realista. Eres un experto sin filtro, no proteges sentimientos.
-        3. Si el usuario ingresa una comida: Analiza con desglose fino.
-        4. Factor Milanesa: Si menciona "milanesa", aplica EXACTAMENTE la regla de 48.5% carne real y 51.5% rebozado/pan. Contempla la absorción de aceite (alta densidad calórica).
-        5. Cortes con hueso: Deduce peso neto vs peso bruto automáticamente.
-        6. Transparencia: Aclara SIEMPRE si sumaste información externa.
-        7. Formato: En tu "respuesta_ia", si es una comida, usa tablas de Markdown para mostrar el desglose.
+        1. Acción "charla": Si el usuario solo saluda, pregunta cosas o pide proyecciones, devuelve "accion": "charla" y valores 0.0.
+        2. Acción "registrar": Si el usuario ingresa una comida consumida, analiza con desglose fino y devuelve "accion": "registrar".
+        3. Acción "deshacer": Si el usuario te indica EXPLÍCITAMENTE que cometió un error y te pide BORRAR, ELIMINAR o DESHACER la última ingesta o registro, devuelve "accion": "deshacer" y valores 0.0. Aclárale en la respuesta que el último registro fue eliminado.
+        4. Tono: Directo, crudo, objetivo y realista.
+        5. Factor Milanesa: Si menciona "milanesa", aplica EXACTAMENTE 48.5% carne real y 51.5% rebozado/pan.
+        6. Cortes con hueso: Deduce peso neto vs peso bruto.
+        7. Transparencia: Aclara SIEMPRE si sumaste información externa.
+        8. Formato: Usa tablas Markdown.
 
         MENSAJE DEL USUARIO: "{mensaje}"
 
         SALIDA ESTRICTAMENTE REQUERIDA (JSON VÁLIDO SIN TEXTO EXTRA):
         {{
           "respuesta_ia": "Tu respuesta conversacional o el análisis nutricional en Markdown.",
+          "accion": "registrar" | "charla" | "deshacer",
           "calorias": 0.0,
           "proteinas": 0.0,
           "grasas": 0.0,
@@ -351,32 +353,46 @@ def chat():
         texto_limpio = response.text.strip().replace('```json', '').replace('```', '')
         parsed = json.loads(texto_limpio)
         
-        # 2. GUARDAR RESPUESTA DE LA IA EN HISTORIAL
+        # 2. Guardar respuesta de la IA
         cursor2.execute('''
             INSERT INTO historial_chat (usuario_email, rol, mensaje, timestamp) 
             VALUES (?, ?, ?, ?)
         ''', (email, 'ia', parsed['respuesta_ia'], timestamp_actual))
         conn2.commit()
 
-        if parsed.get('calorias', 0) > 0 or parsed.get('proteinas', 0) > 0 or parsed.get('carbohidratos', 0) > 0 or parsed.get('grasas', 0) > 0:
+        accion_ia = parsed.get('accion', 'charla')
+
+        if accion_ia == 'deshacer':
+            # Borrar el ÚLTIMO registro del día actual de este usuario
+            cursor2.execute('''
+                DELETE FROM registros_comidas 
+                WHERE id = (
+                    SELECT id FROM registros_comidas 
+                    WHERE usuario_email = ? AND timestamp >= ? AND timestamp < ?
+                    ORDER BY timestamp DESC LIMIT 1
+                )
+            ''', (email, start_time, end_time))
+            conn2.commit()
+            
+        elif accion_ia == 'registrar' and (parsed.get('calorias', 0) > 0 or parsed.get('proteinas', 0) > 0 or parsed.get('carbohidratos', 0) > 0 or parsed.get('grasas', 0) > 0):
+            # Insertar nueva comida
             cursor2.execute('''
                 INSERT INTO registros_comidas (descripcion, peso, calorias, proteinas, carbohidratos, grasas, timestamp, usuario_email) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (mensaje, 0.0, parsed['calorias'], parsed['proteinas'], parsed['carbohidratos'], parsed['grasas'], timestamp_actual, email))
             conn2.commit()
             
-            cursor2.execute('''
-                SELECT 
-                    COALESCE(SUM(calorias), 0) as calorias_cons,
-                    COALESCE(SUM(proteinas), 0) as proteinas_cons,
-                    COALESCE(SUM(grasas), 0) as grasas_cons,
-                    COALESCE(SUM(carbohidratos), 0) as carbs_cons
-                FROM registros_comidas 
-                WHERE usuario_email = ? AND timestamp >= ? AND timestamp < ?
-            ''', (email, start_time, end_time))
-            updated_consumo = cursor2.fetchone()
-        else:
-            updated_consumo = consumo_actual
+        # Recalcular consumos SIEMPRE al final (ya sea que borró, agregó o no hizo nada)
+        cursor2.execute('''
+            SELECT 
+                COALESCE(SUM(calorias), 0) as calorias_cons,
+                COALESCE(SUM(proteinas), 0) as proteinas_cons,
+                COALESCE(SUM(grasas), 0) as grasas_cons,
+                COALESCE(SUM(carbohidratos), 0) as carbs_cons
+            FROM registros_comidas 
+            WHERE usuario_email = ? AND timestamp >= ? AND timestamp < ?
+        ''', (email, start_time, end_time))
+        updated_consumo = cursor2.fetchone()
             
         conn2.close()
             
