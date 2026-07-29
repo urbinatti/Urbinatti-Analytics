@@ -224,6 +224,23 @@ def configuracion():
     conn.close()
     return render_template('configuracion.html', user_data=user_data)
 
+@app.route('/guardar-key', methods=['POST'])
+def guardar_key():
+    if 'user_email' not in session:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    data = request.get_json()
+    key = data.get('api_key', '').strip()
+    if not key:
+        return jsonify({'success': False, 'error': 'Key vacía'})
+    
+    import sqlite3
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("UPDATE usuarios SET gemini_api_key = ? WHERE email = ?", (key, session['user_email']))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
+
 @app.route('/chat', methods=['POST'])
 def chat():
     if 'user_email' not in session:
@@ -246,9 +263,7 @@ def chat():
     api_key = db_key.strip() if db_key and db_key.strip() else os.getenv("GEMINI_API_KEY")
     
     if not api_key:
-        return jsonify({
-            'respuesta': '🔒 Falta configurar tu API Key de Gemini. Tocá el icono del candadito arriba a la derecha para agregarla y empezar a chatear.'
-        })
+        return jsonify({'respuesta': '🔒 Falta configurar tu API Key de Gemini. Ingresala en la tarjeta de arriba para activar el chat.'})
     
     client = genai.Client(api_key=api_key)
     
