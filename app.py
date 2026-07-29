@@ -69,6 +69,11 @@ def login_view():
         return redirect(url_for('index'))
     return render_template('login.html')
 
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login_view'))
+
 @app.route('/login/google')
 def login_google():
     if not GOOGLE_CLIENT_ID:
