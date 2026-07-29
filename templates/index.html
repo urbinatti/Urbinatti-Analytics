@@ -6,32 +6,15 @@
     <title>Dashboard - Urbinatti Analytics</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Librería para procesar Markdown de la IA -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
-        
-        /* Estilos prolijos para las tablas Markdown dentro del chat */
         .chat-content table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin: 0.75rem 0; 
-            font-size: 0.8rem;
-            background-color: #0f172a;
-            border-radius: 0.5rem;
-            overflow: hidden;
+            width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.8rem;
+            background-color: #0f172a; border-radius: 0.5rem; overflow: hidden;
         }
-        .chat-content th, .chat-content td { 
-            padding: 0.5rem; 
-            text-align: left; 
-            border-bottom: 1px solid #1e293b;
-        }
-        .chat-content th { 
-            color: #10b981; 
-            font-weight: 600; 
-            background-color: #020617;
-            border-bottom: 2px solid #1e293b;
-        }
+        .chat-content th, .chat-content td { padding: 0.5rem; text-align: left; border-bottom: 1px solid #1e293b; }
+        .chat-content th { color: #10b981; font-weight: 600; background-color: #020617; border-bottom: 2px solid #1e293b; }
         .chat-content tr:last-child td { border-bottom: none; }
         .chat-content p { margin-bottom: 0.5rem; }
         .chat-content strong { color: #f4f4f5; font-weight: 600; }
@@ -105,7 +88,7 @@
             </div>
         </div>
 
-        <!-- Asistente IA (Revertido a estructura estable y sin bugs) -->
+        <!-- Asistente IA -->
         <div class="bg-[#090d16] border border-[#1e293b] rounded-3xl p-6 space-y-4 shadow-xl">
             <div class="flex justify-between items-center mb-2">
                 <h2 class="text-sm font-bold text-white tracking-wider uppercase">Asistente Nutricional</h2>
@@ -115,7 +98,6 @@
                 </div>
             </div>
 
-            <!-- Banner blindado. Si hay key, esto LITERALMENTE no existe en el HTML. -->
             {% if not has_key %}
             <div id="api-key-banner" class="bg-[#020617] border border-red-500/30 rounded-2xl p-4 space-y-3">
                 <p class="text-xs text-[#a1a1aa]">Para usar la IA, generá tu clave y pegala acá:</p>
@@ -131,9 +113,19 @@
             </div>
             {% endif %}
 
-            <!-- Caja de Chat -->
+            <!-- Caja de Chat con renderizado de historial -->
             <div id="chat-box" class="bg-[#020617] border border-[#1e293b] rounded-2xl h-64 overflow-y-auto p-4 space-y-4 text-sm text-[#f4f4f5]">
-                <p class="text-[#a1a1aa] italic text-center text-xs mt-2">Sistema listo. Podés saludarme, consultar tus macros o cargar una ingesta...</p>
+                {% if not chat_history %}
+                    <p class="text-[#a1a1aa] italic text-center text-xs mt-2">Sistema listo. Podés saludarme, consultar tus macros o cargar una ingesta...</p>
+                {% else %}
+                    {% for msg in chat_history %}
+                        {% if msg.rol == 'user' %}
+                            <div class="text-right mb-2"><span class="bg-[#1e293b] text-[#f4f4f5] px-3 py-2 rounded-xl inline-block max-w-[85%] text-left">{{ msg.mensaje }}</span></div>
+                        {% else %}
+                            <div class="mb-4"><strong class="text-emerald-400 mb-1 block">IA:</strong> <div class="chat-content text-[#cbd5e1] leading-relaxed ia-msg-history">{{ msg.mensaje }}</div></div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
             </div>
             
             <div class="flex gap-2">
@@ -146,6 +138,15 @@
     </div>
 
     <script>
+        // Parsear el Markdown del historial al cargar la página
+        document.addEventListener("DOMContentLoaded", () => {
+            document.querySelectorAll('.ia-msg-history').forEach(el => {
+                el.innerHTML = marked.parse(el.textContent);
+            });
+            const chatBox = document.getElementById('chat-box');
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
+
         const objetivos = {
             calorias: {{ user_data.calorias_objetivo }},
             proteinas: {{ user_data.proteinas_objetivo }},
@@ -153,7 +154,6 @@
             grasas: {{ user_data.grasas_objetivo }}
         };
 
-        // Soporte estricto para enviar con la tecla Enter
         document.getElementById('mensaje-input').addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -216,7 +216,6 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    // Eliminamos el banner entero del DOM si se completó bien
                     const banner = document.getElementById('api-key-banner');
                     if (banner) banner.remove();
                     

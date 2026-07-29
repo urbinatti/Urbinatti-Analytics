@@ -70,6 +70,18 @@ def init_db():
             FOREIGN KEY (usuario_email) REFERENCES usuarios(email)
         )
     ''')
+
+    # NUEVA TABLA PARA EL HISTORIAL DE CHAT
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS historial_chat (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_email TEXT,
+            rol TEXT,
+            mensaje TEXT,
+            timestamp DATETIME,
+            FOREIGN KEY (usuario_email) REFERENCES usuarios(email)
+        )
+    ''')
     
     conn.commit()
     conn.close()

@@ -8,7 +8,8 @@ import database
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+# BLINDAJE DE SESIÓN: Ahora usa una clave fija para que F5 no te cierre la sesión
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "clave_fija_super_segura_urbinati_2026")
 app.permanent_session_lifetime = timedelta(days=30)
 
 database.init_db()
@@ -100,6 +101,15 @@ def index():
         WHERE usuario_email = ? AND timestamp >= ? AND timestamp < ?
     ''', (email, start_time, end_time))
     consumo = cursor.fetchone()
+    
+    # EXTRAER EL HISTORIAL DE CHAT DEL DÍA (4 AM a 4 AM)
+    cursor.execute('''
+        SELECT rol, mensaje FROM historial_chat 
+        WHERE usuario_email = ? AND timestamp >= ? AND timestamp < ?
+        ORDER BY timestamp ASC
+    ''', (email, start_time, end_time))
+    chat_history = cursor.fetchall()
+    
     conn.close()
     
     consumos_dict = {
@@ -120,7 +130,7 @@ def index():
         if env_k and str(env_k).strip() not in ["", "None", "null", "undefined"]:
             has_key = True
     
-    return render_template('index.html', user_data=user_data, consumos=consumos_dict, has_key=has_key)
+    return render_template('index.html', user_data=user_data, consumos=consumos_dict, has_key=has_key, chat_history=chat_history)
 
 @app.route('/login')
 def login():
@@ -252,17 +262,16 @@ def chat():
     mensaje = data.get('mensaje', '')
     email = session['user_email']
     start_time, end_time = get_effective_date_window()
+    timestamp_actual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
     import sqlite3
     conn = sqlite3.connect('database.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # 1. Obtenemos datos del usuario
     cursor.execute("SELECT * FROM usuarios WHERE email = ?", (email,))
     user = cursor.fetchone()
     
-    # 2. Obtenemos el consumo ACTUAL antes de hablar con la IA para inyectar contexto
     cursor.execute('''
         SELECT 
             COALESCE(SUM(calorias), 0) as calorias_cons,
@@ -290,9 +299,18 @@ def chat():
         return jsonify({'respuesta': '🔒 Falta configurar tu API Key. Generala en el botón de arriba y pegala en el campo correspondiente para chatear.'})
     
     try:
+        # 1. GUARDAR MENSAJE DEL USUARIO EN HISTORIAL
+        conn2 = sqlite3.connect('database.db')
+        conn2.row_factory = sqlite3.Row
+        cursor2 = conn2.cursor()
+        cursor2.execute('''
+            INSERT INTO historial_chat (usuario_email, rol, mensaje, timestamp) 
+            VALUES (?, ?, ?, ?)
+        ''', (email, 'user', mensaje, timestamp_actual))
+        conn2.commit()
+
         client = genai.Client(api_key=api_key)
         
-        # EL SÚPER-PROMPT INTELIGENTE
         prompt = f"""
         Eres la IA central de "Urbinatti Analytics", un avanzado asistente nutricional.
 
@@ -305,26 +323,23 @@ def chat():
         - Consumo HOY (hasta ahora): {consumo_actual['calorias_cons']} kcal (Prot: {consumo_actual['proteinas_cons']}g, Carbs: {consumo_actual['carbs_cons']}g, Grasas: {consumo_actual['grasas_cons']}g)
 
         REGLAS DE NEGOCIO Y COMPORTAMIENTO:
-        1. Charla vs Registro: Si el usuario solo saluda (ej. "Hola"), te hace una pregunta o pide proyecciones ("What-if"), responde de forma natural, inteligente y conversacional. En este caso, devuelve los valores numéricos (calorías, macros) como 0.0 para no registrar basura en la base de datos.
+        1. Charla vs Registro: Si el usuario solo saluda (ej. "Hola"), te hace una pregunta o pide proyecciones ("What-if"), responde de forma natural, inteligente y conversacional. En este caso, devuelve los valores numéricos como 0.0.
         2. Tono: Directo, crudo, objetivo y realista. Eres un experto sin filtro, no proteges sentimientos.
-        3. Si el usuario ingresa una comida: Analiza con desglose fino de macros y calorías.
+        3. Si el usuario ingresa una comida: Analiza con desglose fino.
         4. Factor Milanesa: Si menciona "milanesa", aplica EXACTAMENTE la regla de 48.5% carne real y 51.5% rebozado/pan. Contempla la absorción de aceite (alta densidad calórica).
         5. Cortes con hueso: Deduce peso neto vs peso bruto automáticamente.
-        6. Transparencia: Aclara SIEMPRE si sumaste información externa o hiciste una inferencia que el usuario no te dio directamente.
-        7. Formato y Proyección: En tu "respuesta_ia", si es una comida, usa tablas de Markdown para mostrar el desglose y dile cómo queda su balance diario tras este consumo.
-        8. Ledger de correcciones: Si el usuario te corrige sobre un dato anterior (ej. "no era de pollo, era de carne"), acepta el error de inmediato y recalcula.
+        6. Transparencia: Aclara SIEMPRE si sumaste información externa.
+        7. Formato: En tu "respuesta_ia", si es una comida, usa tablas de Markdown para mostrar el desglose.
 
         MENSAJE DEL USUARIO: "{mensaje}"
 
-        SALIDA ESTRICTAMENTE REQUERIDA:
-        Devuelve ÚNICA Y EXCLUSIVAMENTE un JSON válido (sin texto extra fuera de él, sin comillas triples como ```json).
-        El formato exacto debe ser:
+        SALIDA ESTRICTAMENTE REQUERIDA (JSON VÁLIDO SIN TEXTO EXTRA):
         {{
-          "respuesta_ia": "Tu respuesta conversacional o el análisis nutricional (puedes usar Markdown para estructurar/tablas).",
-          "calorias": <float, 0.0 si es charla o pregunta>,
-          "proteinas": <float, 0.0 si es charla>,
-          "grasas": <float, 0.0 si es charla>,
-          "carbohidratos": <float, 0.0 si es charla>
+          "respuesta_ia": "Tu respuesta conversacional o el análisis nutricional en Markdown.",
+          "calorias": 0.0,
+          "proteinas": 0.0,
+          "grasas": 0.0,
+          "carbohidratos": 0.0
         }}
         """
         
@@ -336,20 +351,20 @@ def chat():
         texto_limpio = response.text.strip().replace('```json', '').replace('```', '')
         parsed = json.loads(texto_limpio)
         
-        # Validar si es una charla (valores 0) o un registro real de comida
+        # 2. GUARDAR RESPUESTA DE LA IA EN HISTORIAL
+        cursor2.execute('''
+            INSERT INTO historial_chat (usuario_email, rol, mensaje, timestamp) 
+            VALUES (?, ?, ?, ?)
+        ''', (email, 'ia', parsed['respuesta_ia'], timestamp_actual))
+        conn2.commit()
+
         if parsed.get('calorias', 0) > 0 or parsed.get('proteinas', 0) > 0 or parsed.get('carbohidratos', 0) > 0 or parsed.get('grasas', 0) > 0:
-            timestamp_actual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            conn2 = sqlite3.connect('database.db')
-            conn2.row_factory = sqlite3.Row
-            cursor2 = conn2.cursor()
-            
             cursor2.execute('''
                 INSERT INTO registros_comidas (descripcion, peso, calorias, proteinas, carbohidratos, grasas, timestamp, usuario_email) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (mensaje, 0.0, parsed['calorias'], parsed['proteinas'], parsed['carbohidratos'], parsed['grasas'], timestamp_actual, email))
             conn2.commit()
             
-            # Refrescar los consumos post-insert
             cursor2.execute('''
                 SELECT 
                     COALESCE(SUM(calorias), 0) as calorias_cons,
@@ -360,10 +375,10 @@ def chat():
                 WHERE usuario_email = ? AND timestamp >= ? AND timestamp < ?
             ''', (email, start_time, end_time))
             updated_consumo = cursor2.fetchone()
-            conn2.close()
         else:
-            # Si no hubo comida (charla), los consumos se mantienen igual
             updated_consumo = consumo_actual
+            
+        conn2.close()
             
         return jsonify({
             'respuesta': parsed['respuesta_ia'],
