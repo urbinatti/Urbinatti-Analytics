@@ -34,8 +34,9 @@ def obtener_conexion():
     return conn
 
 def init_db():
-    conn = obtener_conexion()
+    conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
+    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS usuarios (
             email TEXT PRIMARY KEY,
@@ -48,9 +49,13 @@ def init_db():
             objetivo TEXT,
             calorias_objetivo INTEGER,
             onboarding_completado INTEGER DEFAULT 0,
+            proteinas_objetivo REAL,
+            grasas_objetivo REAL,
+            carbs_objetivo REAL,
             gemini_api_key TEXT
         )
     ''')
+    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS registros_comidas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,6 +70,7 @@ def init_db():
             FOREIGN KEY (usuario_email) REFERENCES usuarios(email)
         )
     ''')
+    
     conn.commit()
     conn.close()
 
