@@ -4,14 +4,34 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from dotenv import load_dotenv
 from google import genai
 import database
+from authlib.integrations.flask_client import OAuth
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "clave_fija_super_segura_urbinati_2026")
 app.permanent_session_lifetime = timedelta(days=30)
+oauth = OAuth(app)
+google = oauth.register(
+    name='google',
+    client_id=os.getenv("GOOGLE_CLIENT_ID"),
+    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={
+        'scope': 'openid email profile'
+    }
+)
 
 database.init_db()
+
+oauth = OAuth(app)
+oauth.register(
+    name='google',
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={
+        'scope': 'openid email profile'
+    }
+)
 
 def get_effective_date_window():
     now = datetime.now()
@@ -138,24 +158,41 @@ def login():
 
 @app.route('/login/google')
 def login_google():
+    # Esto redirige a la pantalla oficial de Google
+    redirect_uri = url_for('auth', _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+@app.route('/auth')
+def auth():
+    # Google nos devuelve acá con el token real
+    token = google.authorize_access_token()
+    user_info = token.get('userinfo')
+    
+    email_real = user_info['email']
+    nombre_real = user_info.get('name', 'Usuario')
+    
     session.permanent = True
-    email_demo = 'matias@urbinatti.com'
-    session['user_email'] = email_demo
+    session['user_email'] = email_real
     
     import sqlite3
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT email FROM usuarios WHERE email = ?", (email_demo,))
-    if not cursor.fetchone():
-        cursor.execute("INSERT INTO usuarios (email, nombre, onboarding_completado) VALUES (?, ?, ?)",
-                       (email_demo, 'Matías Urbinatti', 0))
-        conn.commit()
-        
-    cursor.execute("SELECT onboarding_completado FROM usuarios WHERE email = ?", (email_demo,))
+    
+    # Verificamos si el usuario real existe en nuestra base
+    cursor.execute("SELECT email, onboarding_completado FROM usuarios WHERE email = ?", (email_real,))
     row = cursor.fetchone()
+    
+    if not row:
+        # Es un usuario nuevo, lo registramos
+        cursor.execute("INSERT INTO usuarios (email, nombre, onboarding_completado) VALUES (?, ?, 0)",
+                       (email_real, nombre_real))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('onboarding'))
+    
     conn.close()
     
-    if row and row[0] == 1:
+    if row[1] == 1:
         return redirect(url_for('index'))
     return redirect(url_for('onboarding'))
 
