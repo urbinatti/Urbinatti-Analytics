@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
-# Inicializamos el cifrador con la Llave Maestra del .env
 master_key = os.getenv("MASTER_KEY")
 if not master_key:
     raise RuntimeError(f"Falta configurar la MASTER_KEY en el archivo .env (Buscado en: {os.path.join(BASE_DIR, '.env')})")
@@ -14,13 +13,11 @@ if not master_key:
 fernet = Fernet(master_key.encode())
 
 def cifrar_key(api_key):
-    """Toma la API key en texto plano y devuelve el texto cifrado."""
     if not api_key:
         return None
     return fernet.encrypt(api_key.encode()).decode()
 
 def descifrar_key(api_key_cifrada):
-    """Toma la API key cifrada de la BD y la descifra en memoria RAM."""
     if not api_key_cifrada:
         return None
     try:

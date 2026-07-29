@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 from google import genai
 from datetime import timedelta
 
-# Forzar ruta absoluta del .env
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
