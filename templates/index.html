@@ -10,6 +10,7 @@
 </head>
 <body class="bg-[#020617] text-[#f4f4f5] min-h-screen p-4 sm:p-6 pb-24">
     <div class="max-w-md mx-auto space-y-6">
+        <!-- Header -->
         <div class="flex justify-between items-center bg-[#090d16] border border-[#1e293b] rounded-3xl p-6 shadow-xl">
             <div>
                 <h1 class="text-xl font-bold tracking-tight text-white uppercase">HOLA, {{ user_data.nombre.split()[0] if user_data.nombre else 'MATÍAS' }}</h1>
@@ -23,59 +24,65 @@
             </div>
         </div>
 
+        <!-- Calorías / Círculo de Progreso -->
         <div class="bg-[#090d16] border border-[#1e293b] rounded-3xl p-6 text-center space-y-4 shadow-xl">
             <div class="relative w-48 h-48 mx-auto flex items-center justify-center">
                 <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                     <path class="text-[#1e293b]" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
-                    <path class="text-[#10b981]" stroke-dasharray="75, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                    <path id="cal-circle-progress" class="transition-all duration-500" stroke-dasharray="0, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
                 </svg>
                 <div class="absolute inset-0 flex flex-col items-center justify-center">
-                    <span class="text-3xl font-extrabold text-white">{{ user_data.calorias_objetivo }} kcal</span>
-                    <span class="text-xs text-[#a1a1aa] mt-1">de 2400 kcal</span>
+                    <span id="cal-cons-text" class="text-3xl font-extrabold text-white">{{ consumos.calorias_cons | round }} kcal</span>
+                    <span class="text-xs text-[#a1a1aa] mt-1">de {{ user_data.calorias_objetivo | round }} kcal</span>
                 </div>
             </div>
             <div class="text-xs text-[#10b981] font-medium uppercase tracking-wider bg-[#10b981]/10 py-1.5 px-3 rounded-full inline-block">
-                Objetivo: {{ user_data.objetivo | replace('_', ' ') }}
+                OBJETIVO: {{ user_data.objetivo | replace('_', ' ') }}
             </div>
         </div>
 
+        <!-- Macros -->
         <div class="bg-[#090d16] border border-[#1e293b] rounded-3xl p-6 space-y-4 shadow-xl">
             <h2 class="text-sm font-bold text-white tracking-wider uppercase">Macros</h2>
-            <div class="space-y-3">
+            <div class="space-y-4">
+                <!-- Proteínas -->
                 <div>
                     <div class="flex justify-between text-xs mb-1 text-[#f4f4f5]">
                         <span>Proteínas</span>
-                        <span class="text-[#a1a1aa]">140g / 180g</span>
+                        <span id="prot-text" class="text-[#a1a1aa]">{{ consumos.proteinas_cons | round(1) }}g / {{ user_data.proteinas_objetivo }}g</span>
                     </div>
-                    <div class="w-full bg-[#020617] border border-[#1e293b] rounded-full h-2">
-                        <div class="bg-[#10b981] h-2 rounded-full" style="width: 78%"></div>
+                    <div class="w-full bg-[#020617] border border-[#1e293b] rounded-full h-2.5 overflow-hidden">
+                        <div id="prot-bar" class="h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
+                <!-- Carbohidratos -->
                 <div>
                     <div class="flex justify-between text-xs mb-1 text-[#f4f4f5]">
-                        <span>Carbonidratos</span>
-                        <span class="text-[#a1a1aa]">140g / 223g</span>
+                        <span>Carbohidratos</span>
+                        <span id="carb-text" class="text-[#a1a1aa]">{{ consumos.carbs_cons | round(1) }}g / {{ user_data.carbs_objetivo }}g</span>
                     </div>
-                    <div class="w-full bg-[#020617] border border-[#1e293b] rounded-full h-2">
-                        <div class="bg-[#10b981] h-2 rounded-full" style="width: 62%"></div>
+                    <div class="w-full bg-[#020617] border border-[#1e293b] rounded-full h-2.5 overflow-hidden">
+                        <div id="carb-bar" class="h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
+                <!-- Grasas -->
                 <div>
                     <div class="flex justify-between text-xs mb-1 text-[#f4f4f5]">
                         <span>Grasas</span>
-                        <span class="text-[#a1a1aa]">50g / 221g</span>
+                        <span id="fat-text" class="text-[#a1a1aa]">{{ consumos.grasas_cons | round(1) }}g / {{ user_data.grasas_objetivo }}g</span>
                     </div>
-                    <div class="w-full bg-[#020617] border border-[#1e293b] rounded-full h-2">
-                        <div class="bg-[#10b981] h-2 rounded-full" style="width: 25%"></div>
+                    <div class="w-full bg-[#020617] border border-[#1e293b] rounded-full h-2.5 overflow-hidden">
+                        <div id="fat-bar" class="h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
             </div>
         </div>
 
+        <!-- Asistente IA -->
         <div class="bg-[#090d16] border border-[#1e293b] rounded-3xl p-6 space-y-4 shadow-xl">
             <h2 class="text-sm font-bold text-white tracking-wider uppercase">Asistente Nutricional</h2>
             <div id="chat-box" class="bg-[#020617] border border-[#1e293b] rounded-2xl h-48 overflow-y-auto p-4 space-y-3 text-sm text-[#f4f4f5]">
-                <p class="text-[#a1a1aa] italic">Sistema listo. Escribí tu consulta o ingesta...</p>
+                <p class="text-[#a1a1aa] italic">Sistema listo. Escribí tu ingesta del día...</p>
             </div>
             <div class="flex gap-2">
                 <input type="text" id="mensaje-input" placeholder="Ej: Comí 200g de milanesa..." class="flex-1 bg-[#020617] border border-[#334155] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#10b981]">
@@ -86,13 +93,59 @@
         </div>
     </div>
 
-    <div class="fixed bottom-6 right-6">
-        <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="w-14 h-14 bg-[#10b981] hover:bg-[#059669] text-slate-950 rounded-2xl flex items-center justify-center shadow-2xl transition-transform hover:scale-105">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-        </button>
-    </div>
-
     <script>
+        const objetivos = {
+            calorias: {{ user_data.calorias_objetivo }},
+            proteinas: {{ user_data.proteinas_objetivo }},
+            carbs: {{ user_data.carbs_objetivo }},
+            grasas: {{ user_data.grasas_objetivo }}
+        };
+
+        function actualizarUI(cons) {
+            document.getElementById('cal-cons-text').innerText = Math.round(cons.calorias_cons) + ' kcal';
+            document.getElementById('prot-text').innerText = cons.proteinas_cons.toFixed(1) + 'g / ' + objetivos.proteinas + 'g';
+            document.getElementById('carb-text').innerText = cons.carbs_cons.toFixed(1) + 'g / ' + objetivos.carbs + 'g';
+            document.getElementById('fat-text').innerText = cons.grasas_cons.toFixed(1) + 'g / ' + objetivos.grasas + 'g';
+
+            const pctCal = (cons.calorias_cons / objetivos.calorias) * 100;
+            const pctProt = (cons.proteinas_cons / objetivos.proteinas) * 100;
+            const pctCarb = (cons.carbs_cons / objetivos.carbs) * 100;
+            const pctFat = (cons.grasas_cons / objetivos.grasas) * 100;
+
+            // Círculo calorías
+            const circle = document.getElementById('cal-circle-progress');
+            circle.setAttribute('stroke-dasharray', `${Math.min(pctCal, 100)}, 100`);
+            circle.style.color = getColorClass(pctCal, cons.calorias_cons);
+
+            // Barras de macros
+            setBarProgress('prot-bar', 'prot-text', pctProt, cons.proteinas_cons);
+            setBarProgress('carb-bar', 'carb-text', pctCarb, cons.carbs_cons);
+            setBarProgress('fat-bar', 'fat-text', pctFat, cons.grasas_cons);
+        }
+
+        function getColorClass(pct, actual) {
+            if (actual === 0 || pct === 0) return '#334155'; // Gris neutro cuando está vacío
+            if (pct <= 100) return '#10b981'; // Verde óptimo
+            if (pct <= 110) return '#f59e0b'; // Amarillo perdonable
+            return '#ef4444'; // Rojo crítico
+        }
+
+        function setBarProgress(barId, textId, pct, actual) {
+            const bar = document.getElementById(barId);
+            bar.style.width = Math.min(pct, 100) + '%';
+            const color = getColorClass(pct, actual);
+            bar.style.backgroundColor = color;
+            document.getElementById(textId).style.color = actual === 0 ? '#a1a1aa' : color;
+        }
+
+        // Inicializar al cargar con los valores actuales del servidor
+        actualizarUI({
+            calorias_cons: {{ consumos.calorias_cons }},
+            proteinas_cons: {{ consumos.proteinas_cons }},
+            grasas_cons: {{ consumos.grasas_cons }},
+            carbs_cons: {{ consumos.carbs_cons }}
+        });
+
         async function enviarMensaje() {
             const input = document.getElementById('mensaje-input');
             const chatBox = document.getElementById('chat-box');
@@ -112,6 +165,10 @@
                 const data = await res.json();
                 chatBox.innerHTML += `<div><strong class="text-emerald-400">IA:</strong> ${data.respuesta.replace(/\\n/g, '<br>')}</div>`;
                 chatBox.scrollTop = chatBox.scrollHeight;
+
+                if (data.consumos) {
+                    actualizarUI(data.consumos);
+                }
             } catch (err) {
                 chatBox.innerHTML += `<div class="text-red-400"><strong>Error:</strong> Conexión fallida.</div>`;
             }
