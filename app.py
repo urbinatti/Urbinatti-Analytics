@@ -109,7 +109,9 @@ def index():
         "carbs_cons": consumo["carbs_cons"]
     }
     
-    has_key = bool((user_data['gemini_api_key'] and user_data['gemini_api_key'].strip()) or os.getenv("GEMINI_API_KEY"))
+    db_k = user_data['gemini_api_key']
+    env_k = os.getenv("GEMINI_API_KEY")
+    has_key = bool((db_k and db_k.strip() and db_k != "None") or (env_k and env_k.strip()))
     
     return render_template('index.html', user_data=user_data, consumos=consumos_dict, has_key=has_key)
 
@@ -202,18 +204,11 @@ def configuracion():
         
         nutri = calcular_nutricion(peso, altura, edad, sexo, dias, objetivo)
         
-        if gemini_key:
-            cursor.execute('''
-                UPDATE usuarios SET peso_kg=?, altura_cm=?, edad=?, dias_entreno=?, objetivo=?,
-                calorias_objetivo=?, proteinas_objetivo=?, grasas_objetivo=?, carbs_objetivo=?, gemini_api_key=?
-                WHERE email=?
-            ''', (peso, altura, edad, dias, objetivo, nutri['calorias'], nutri['proteinas'], nutri['grasas'], nutri['carbs'], gemini_key, session['user_email']))
-        else:
-            cursor.execute('''
-                UPDATE usuarios SET peso_kg=?, altura_cm=?, edad=?, dias_entreno=?, objetivo=?,
-                calorias_objetivo=?, proteinas_objetivo=?, grasas_objetivo=?, carbs_objetivo=?
-                WHERE email=?
-            ''', (peso, altura, edad, dias, objetivo, nutri['calorias'], nutri['proteinas'], nutri['grasas'], nutri['carbs'], session['user_email']))
+        cursor.execute('''
+            UPDATE usuarios SET peso_kg=?, altura_cm=?, edad=?, dias_entreno=?, objetivo=?,
+            calorias_objetivo=?, proteinas_objetivo=?, grasas_objetivo=?, carbs_objetivo=?, gemini_api_key=?
+            WHERE email=?
+        ''', (peso, altura, edad, dias, objetivo, nutri['calorias'], nutri['proteinas'], nutri['grasas'], nutri['carbs'], gemini_key, session['user_email']))
             
         conn.commit()
         conn.close()
@@ -260,10 +255,10 @@ def chat():
     conn.close()
     
     db_key = user['gemini_api_key'] if user and 'gemini_api_key' in user else None
-    api_key = db_key.strip() if db_key and db_key.strip() else os.getenv("GEMINI_API_KEY")
+    api_key = db_key.strip() if db_key and db_key.strip() and db_key != "None" else os.getenv("GEMINI_API_KEY")
     
-    if not api_key:
-        return jsonify({'respuesta': '🔒 Falta configurar tu API Key de Gemini. Ingresala en la tarjeta de arriba para activar el chat.'})
+    if not api_key or not api_key.strip():
+        return jsonify({'respuesta': '🔒 Falta configurar tu API Key de Gemini. Completala arriba para activar el asistente.'})
     
     client = genai.Client(api_key=api_key)
     

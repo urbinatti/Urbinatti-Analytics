@@ -75,24 +75,21 @@
             </div>
         </div>
 
-        <!-- Asistente IA (Con sistema de Candadito Integrado) -->
+        <!-- Asistente IA -->
         <div class="bg-[#090d16] border border-[#1e293b] rounded-3xl p-6 space-y-4 shadow-xl">
             <div class="flex justify-between items-center">
-                <h2 class="text-sm font-bold text-white tracking-wider uppercase flex items-center gap-2">
-                    Asistente Nutricional
-                </h2>
-                <!-- Candado indicador en el chat -->
+                <h2 class="text-sm font-bold text-white tracking-wider uppercase">Asistente Nutricional</h2>
                 <div id="chat-lock-indicator" class="flex items-center gap-1.5 text-xs px-3 py-1 rounded-full {% if has_key %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/30{% else %}bg-red-500/10 text-red-400 border border-red-500/30{% endif %}">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{% if has_key %}M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z{% else %}M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z{% endif %}"/></svg>
                     <span id="lock-text">{% if has_key %}Activo{% else %}API Key Requerida{% endif %}</span>
                 </div>
             </div>
 
-            <!-- Si NO hay API Key, mostramos la tarjeta interactiva de configuración directa en el chat -->
+            <!-- Banner interactivo de API Key (visible solo si falta) -->
             <div id="api-key-banner" class="bg-[#020617] border border-red-500/30 rounded-2xl p-4 space-y-3 {% if has_key %}hidden{% endif %}">
-                <p class="text-xs text-[#a1a1aa]">Para chatear con el asistente, generá tu API Key de Gemini gratis y pegala acá:</p>
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="block text-center bg-[#090d16] hover:bg-slate-800 text-emerald-400 font-medium py-2 rounded-xl text-xs border border-[#334155] transition-all">
-                    1. Generar API Key en Google AI Studio ↗
+                <p class="text-xs text-[#a1a1aa]">Para usar el asistente, generá tu API Key de Gemini y pegala acá:</p>
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="block text-center bg-[#090d16] hover:bg-slate-800 text-emerald-400 font-medium py-2.5 rounded-xl text-xs border border-[#334155] transition-all">
+                    1. Generar API Key ↗
                 </a>
                 <div class="flex gap-2">
                     <input type="text" id="inline-api-key" placeholder="Pegá tu key acá (AIzaSy...)" class="flex-1 bg-[#090d16] border border-[#334155] rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-[#10b981]">
@@ -165,7 +162,7 @@
         async function guardarKeyInline() {
             const keyInput = document.getElementById('inline-api-key');
             const apiKey = keyInput.value.trim();
-            if (!apiKey) return alert('Por favor ingresá una API key válida.');
+            if (!apiKey) return alert('Ingresá una API key válida.');
 
             try {
                 const res = await fetch('/guardar-key', {
@@ -175,20 +172,19 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    // Ocultar banner y actualizar indicador de candado
                     document.getElementById('api-key-banner').classList.add('hidden');
                     const indicator = document.getElementById('chat-lock-indicator');
                     indicator.className = "flex items-center gap-1.5 text-xs px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
                     document.getElementById('lock-text').innerText = "Activo";
                     
                     const chatBox = document.getElementById('chat-box');
-                    chatBox.innerHTML += `<div><strong class="text-emerald-400">Sistema:</strong> API Key guardada correctamente. ¡Ya podés chatear!</div>`;
+                    chatBox.innerHTML += `<div><strong class="text-emerald-400">Sistema:</strong> API Key guardada y activada correctamente.</div>`;
                     chatBox.scrollTop = chatBox.scrollHeight;
                 } else {
-                    alert('Error al guardar la key.');
+                    alert('Error al guardar.');
                 }
             } catch (err) {
-                alert('Error de conexión al guardar.');
+                alert('Error de conexión.');
             }
         }
 
