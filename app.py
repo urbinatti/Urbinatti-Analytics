@@ -109,7 +109,6 @@ def index():
         "carbs_cons": consumo["carbs_cons"]
     }
     
-    # Lógica blindada para validar existencia de API Key
     has_key = False
     if user_data and 'gemini_api_key' in user_data.keys() and user_data['gemini_api_key']:
         db_k = str(user_data['gemini_api_key']).strip()
@@ -256,13 +255,12 @@ def chat():
     
     import sqlite3
     conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row
+    conn.row_factory = sqlite3.Row 
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM usuarios WHERE email = ?", (email,))
     user = cursor.fetchone()
     conn.close()
     
-    # Extracción y validación 100% blindada de la API Key
     api_key = None
     if user and 'gemini_api_key' in user.keys() and user['gemini_api_key']:
         db_key = str(user['gemini_api_key']).strip()
@@ -301,15 +299,18 @@ def chat():
         
         timestamp_actual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-        conn = sqlite3.connect('database.db')
-        cursor = conn.cursor()
-        cursor.execute('''
+        # ACA ESTABA EL ERROR: FALTABA EL ROW_FACTORY PARA LA SEGUNDA CONEXIÓN
+        conn2 = sqlite3.connect('database.db')
+        conn2.row_factory = sqlite3.Row  # SOLUCIONADO
+        cursor2 = conn2.cursor()
+        
+        cursor2.execute('''
             INSERT INTO registros_comidas (descripcion, peso, calorias, proteinas, carbohidratos, grasas, timestamp, usuario_email) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (mensaje, 0.0, parsed['calorias'], parsed['proteinas'], parsed['carbohidratos'], parsed['grasas'], timestamp_actual, email))
-        conn.commit()
+        conn2.commit()
         
-        cursor.execute('''
+        cursor2.execute('''
             SELECT 
                 COALESCE(SUM(calorias), 0) as calorias_cons,
                 COALESCE(SUM(proteinas), 0) as proteinas_cons,
@@ -318,8 +319,8 @@ def chat():
             FROM registros_comidas 
             WHERE usuario_email = ? AND timestamp >= ? AND timestamp < ?
         ''', (email, start_time, end_time))
-        updated_consumo = cursor.fetchone()
-        conn.close()
+        updated_consumo = cursor2.fetchone()
+        conn2.close()
         
         return jsonify({
             'respuesta': parsed['respuesta_ia'],
@@ -331,7 +332,7 @@ def chat():
             }
         })
     except Exception as e:
-        return jsonify({'respuesta': f'Error en la API de Gemini: {str(e)}'})
+        return jsonify({'respuesta': f'Error en el servidor procesando los macros: {str(e)}'})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
