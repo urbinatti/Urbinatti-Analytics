@@ -258,7 +258,7 @@ def chat():
     api_key = str(db_key).strip() if db_key and str(db_key).strip() and str(db_key) != "None" else os.getenv("GEMINI_API_KEY")
     
     if not api_key or not str(api_key).strip():
-        return jsonify({'respuesta': '🔒 Falta configurar tu API Key. Generala en el botón de arriba y pegala en el campo correspondiente.'})
+        return jsonify({'respuesta': '🔒 Falta configurar tu API Key. Generala en el botón de arriba y pegala en el campo correspondiente para chatear.'})
     
     try:
         client = genai.Client(api_key=api_key)
