@@ -109,7 +109,7 @@ def index():
         "carbs_cons": consumo["carbs_cons"]
     }
     
-    db_k = user_data['gemini_api_key'] if 'gemini_api_key' in user_data.keys() else None
+    db_k = user_data['gemini_api_key'] if user_data and 'gemini_api_key' in user_data.keys() else None
     env_k = os.getenv("GEMINI_API_KEY")
     has_key = bool((db_k and str(db_k).strip() and str(db_k) != "None") or (env_k and str(env_k).strip()))
     
@@ -248,7 +248,7 @@ def chat():
     
     import sqlite3
     conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row
+    conn.row_factory = sqlite3.Row  # <-- ¡ESTO EVITA EL ERROR DE TUPLA!
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM usuarios WHERE email = ?", (email,))
     user = cursor.fetchone()
