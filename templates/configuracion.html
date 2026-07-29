@@ -4,46 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Configuración - Urbinatti Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css">
+    <style>body { font-family: 'Inter', sans-serif; }</style>
 </head>
-<body>
-
-    <div class="config-card">
-        <div class="card-header">
-            <h1>Configuración General</h1>
-            <p>Actualiza tus parámetros físicos, tu objetivo o tu API key de Gemini.</p>
+<body class="bg-[#020617] text-[#f4f4f5] min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-md w-full bg-[#090d16] border border-[#1e293b] rounded-3xl p-8 space-y-6 shadow-2xl">
+        <div class="space-y-1">
+            <h1 class="text-2xl font-bold text-white">Configuración</h1>
+            <p class="text-xs text-[#a1a1aa]">Actualiza tus datos y objetivos.</p>
         </div>
-
-        <form action="/configuracion" method="POST">
-            
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="peso_kg">Peso actual (kg)</label>
-                    <input type="number" step="0.1" id="peso_kg" name="peso_kg" required value="{{ user_data.peso_kg }}">
-                </div>
-
-                <div class="form-group">
-                    <label for="altura_cm">Altura (cm)</label>
-                    <input type="number" id="altura_cm" name="altura_cm" required value="{{ user_data.altura_cm }}">
-                </div>
+        <form action="/configuracion" method="POST" class="space-y-4">
+            <div class="space-y-1">
+                <label class="block text-xs font-medium text-[#f4f4f5]">Peso</label>
+                <input type="number" step="0.1" name="peso_kg" required value="{{ user_data.peso_kg }}" class="w-full bg-[#020617] border border-[#334155] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#10b981]">
             </div>
-
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="edad">Edad</label>
-                    <input type="number" id="edad" name="edad" required value="{{ user_data.edad }}">
-                </div>
-
-                <div class="form-group">
-                    <label for="dias_entreno">Días de entreno / sem</label>
-                    <input type="number" id="dias_entreno" name="dias_entreno" required value="{{ user_data.dias_entreno }}" min="0" max="7">
-                </div>
+            <div class="space-y-1">
+                <label class="block text-xs font-medium text-[#f4f4f5]">Altura</label>
+                <input type="number" name="altura_cm" required value="{{ user_data.altura_cm }}" class="w-full bg-[#020617] border border-[#334155] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#10b981]">
             </div>
-
-            <div class="form-group full-width">
-                <label for="objetivo">Objetivo Nutricional</label>
-                <select id="objetivo" name="objetivo" required>
+            <div class="space-y-1">
+                <label class="block text-xs font-medium text-[#f4f4f5]">Edad</label>
+                <input type="number" name="edad" required value="{{ user_data.edad }}" class="w-full bg-[#020617] border border-[#334155] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#10b981]">
+            </div>
+            <div class="space-y-1">
+                <label class="block text-xs font-medium text-[#f4f4f5]">Días de entrenamiento (0-7)</label>
+                <input type="number" name="dias_entreno" required value="{{ user_data.dias_entreno }}" min="0" max="7" class="w-full bg-[#020617] border border-[#334155] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#10b981]">
+            </div>
+            <div class="space-y-1">
+                <label class="block text-xs font-medium text-[#f4f4f5]">Objetivo actual</label>
+                <select name="objetivo" required class="w-full bg-[#020617] border border-[#334155] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#10b981]">
                     <option value="perdida_agresiva" {% if user_data.objetivo == 'perdida_agresiva' %}selected{% endif %}>Pérdida agresiva (-25%)</option>
                     <option value="perdida_controlada" {% if user_data.objetivo == 'perdida_controlada' %}selected{% endif %}>Pérdida controlada (-15%)</option>
                     <option value="mantenimiento" {% if user_data.objetivo == 'mantenimiento' %}selected{% endif %}>Mantenimiento (0%)</option>
@@ -51,17 +41,14 @@
                     <option value="volumen_fuerte" {% if user_data.objetivo == 'volumen_fuerte' %}selected{% endif %}>Volumen fuerte (+20%)</option>
                 </select>
             </div>
-
-            <div class="form-group full-width">
-                <label for="gemini_api_key">Gemini API Key Personal</label>
-                <input type="password" id="gemini_api_key" name="gemini_api_key" placeholder="Dejar en blanco para mantener la actual">
+            <div class="space-y-1">
+                <label class="block text-xs font-medium text-[#f4f4f5]">Gemini API Key Personal</label>
+                <input type="password" name="gemini_api_key" placeholder="Dejar en blanco para mantener actual" class="w-full bg-[#020617] border border-[#334155] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#10b981]">
             </div>
-
-            <button type="submit" class="submit-btn">
-                Guardar Cambios
+            <button type="submit" class="w-full bg-[#10b981] hover:bg-[#059669] text-slate-950 font-bold py-3.5 rounded-xl transition-all shadow-lg mt-2">
+                Actualizar métricas y recalcular
             </button>
         </form>
     </div>
-
 </body>
 </html>

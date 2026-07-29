@@ -4,53 +4,92 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Urbinatti Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css">
+    <style>body { font-family: 'Inter', sans-serif; }</style>
 </head>
-<body style="display: block;">
-
-    <div class="dashboard-container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+<body class="bg-[#020617] text-[#f4f4f5] min-h-screen p-4 sm:p-6 pb-24">
+    <div class="max-w-md mx-auto space-y-6">
+        <div class="flex justify-between items-center bg-[#090d16] border border-[#1e293b] rounded-3xl p-6 shadow-xl">
             <div>
-                <h1 style="font-size: 1.875rem; font-weight: 700; color: #ffffff;">Panel de Control</h1>
-                <p style="color: #94a3b8; font-size: 0.875rem;">Usuario: {{ user_data.nombre }}</p>
+                <h1 class="text-xl font-bold tracking-tight text-white uppercase">HOLA, {{ user_data.nombre.split()[0] if user_data.nombre else 'MATÍAS' }}</h1>
+                <p class="text-xs text-[#a1a1aa]">Peso: {{ user_data.peso_kg }} kg | {{ user_data.dias_entreno }} días/sem</p>
             </div>
-            <div style="display: flex; gap: 1rem;">
-                <a href="/configuracion" class="btn-primary" style="margin: 0; padding: 0.5rem 1rem; width: auto;">Configuración</a>
-                <a href="/logout" style="background-color: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; font-size: 0.9rem;">Cerrar Sesión</a>
-            </div>
-        </div>
-
-        <div class="metrics-grid">
-            <div class="metric-card">
-                <h3>Peso Actual</h3>
-                <div class="value">{{ user_data.peso_kg }} kg</div>
-            </div>
-            <div class="metric-card">
-                <h3>Calorías Objetivo</h3>
-                <div class="value">{{ user_data.calorias_objetivo }} kcal</div>
-            </div>
-            <div class="metric-card">
-                <h3>Objetivo Activo</h3>
-                <div class="value" style="font-size: 1.25rem; margin-top: 0.5rem; text-transform: capitalize;">{{ user_data.objetivo | replace('_', ' ') }}</div>
-            </div>
-            <div class="metric-card">
-                <h3>Días de Entreno</h3>
-                <div class="value">{{ user_data.dias_entreno }} / sem</div>
+            <div class="flex items-center gap-2">
+                <a href="/configuracion" class="p-2.5 bg-[#020617] border border-[#1e293b] rounded-xl text-[#a1a1aa] hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                </a>
+                <a href="/logout" class="p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 hover:bg-red-500/20 transition-colors text-xs font-medium">Salir</a>
             </div>
         </div>
 
-        <!-- Consola del Chat IA -->
-        <div style="background-color: #0f172a; border: 1px solid #1e293b; border-radius: 1rem; padding: 1.5rem; margin-top: 2rem;">
-            <h2 style="font-size: 1.25rem; font-weight: 600; color: #ffffff; margin-bottom: 1rem;">Asistente Nutricional AI</h2>
-            <div id="chat-box" style="background-color: #020617; border: 1px solid #334155; border-radius: 0.5rem; height: 250px; overflow-y: auto; padding: 1rem; margin-bottom: 1rem; color: #cbd5e1; font-size: 0.9rem;">
-                <p style="color: #64748b;">Sistema inicializado. Escribí tu consulta o ingesta diaria...</p>
+        <div class="bg-[#090d16] border border-[#1e293b] rounded-3xl p-6 text-center space-y-4 shadow-xl">
+            <div class="relative w-48 h-48 mx-auto flex items-center justify-center">
+                <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <path class="text-[#1e293b]" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                    <path class="text-[#10b981]" stroke-dasharray="75, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                    <span class="text-3xl font-extrabold text-white">{{ user_data.calorias_objetivo }} kcal</span>
+                    <span class="text-xs text-[#a1a1aa] mt-1">de 2400 kcal</span>
+                </div>
             </div>
-            <div style="display: flex; gap: 0.75rem;">
-                <input type="text" id="mensaje-input" placeholder="Ej: Comí 200g de milanesa con ensalada..." style="flex: 1; margin: 0;">
-                <button onclick="enviarMensaje()" class="submit-btn" style="margin: 0; width: auto; padding: 0.75rem 1.5rem;">Enviar</button>
+            <div class="text-xs text-[#10b981] font-medium uppercase tracking-wider bg-[#10b981]/10 py-1.5 px-3 rounded-full inline-block">
+                Objetivo: {{ user_data.objetivo | replace('_', ' ') }}
             </div>
         </div>
+
+        <div class="bg-[#090d16] border border-[#1e293b] rounded-3xl p-6 space-y-4 shadow-xl">
+            <h2 class="text-sm font-bold text-white tracking-wider uppercase">Macros</h2>
+            <div class="space-y-3">
+                <div>
+                    <div class="flex justify-between text-xs mb-1 text-[#f4f4f5]">
+                        <span>Proteínas</span>
+                        <span class="text-[#a1a1aa]">140g / 180g</span>
+                    </div>
+                    <div class="w-full bg-[#020617] border border-[#1e293b] rounded-full h-2">
+                        <div class="bg-[#10b981] h-2 rounded-full" style="width: 78%"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-xs mb-1 text-[#f4f4f5]">
+                        <span>Carbonidratos</span>
+                        <span class="text-[#a1a1aa]">140g / 223g</span>
+                    </div>
+                    <div class="w-full bg-[#020617] border border-[#1e293b] rounded-full h-2">
+                        <div class="bg-[#10b981] h-2 rounded-full" style="width: 62%"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-xs mb-1 text-[#f4f4f5]">
+                        <span>Grasas</span>
+                        <span class="text-[#a1a1aa]">50g / 221g</span>
+                    </div>
+                    <div class="w-full bg-[#020617] border border-[#1e293b] rounded-full h-2">
+                        <div class="bg-[#10b981] h-2 rounded-full" style="width: 25%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-[#090d16] border border-[#1e293b] rounded-3xl p-6 space-y-4 shadow-xl">
+            <h2 class="text-sm font-bold text-white tracking-wider uppercase">Asistente Nutricional</h2>
+            <div id="chat-box" class="bg-[#020617] border border-[#1e293b] rounded-2xl h-48 overflow-y-auto p-4 space-y-3 text-sm text-[#f4f4f5]">
+                <p class="text-[#a1a1aa] italic">Sistema listo. Escribí tu consulta o ingesta...</p>
+            </div>
+            <div class="flex gap-2">
+                <input type="text" id="mensaje-input" placeholder="Ej: Comí 200g de milanesa..." class="flex-1 bg-[#020617] border border-[#334155] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#10b981]">
+                <button onclick="enviarMensaje()" class="bg-[#10b981] hover:bg-[#059669] text-slate-950 font-bold px-5 py-3 rounded-xl transition-all">
+                    Enviar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="fixed bottom-6 right-6">
+        <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="w-14 h-14 bg-[#10b981] hover:bg-[#059669] text-slate-950 rounded-2xl flex items-center justify-center shadow-2xl transition-transform hover:scale-105">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+        </button>
     </div>
 
     <script>
@@ -60,7 +99,7 @@
             const mensaje = input.value.trim();
             if (!mensaje) return;
 
-            chatBox.innerHTML += `<div style="margin-bottom: 0.75rem; text-align: right;"><strong style="color: #818cf8;">Tú:</strong> ${mensaje}</div>`;
+            chatBox.innerHTML += `<div class="text-right"><strong class="text-[#10b981]">Tú:</strong> ${mensaje}</div>`;
             input.value = '';
             chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -71,10 +110,10 @@
                     body: JSON.stringify({ mensaje })
                 });
                 const data = await res.json();
-                chatBox.innerHTML += `<div style="margin-bottom: 0.75rem;"><strong style="color: #34d399;">IA:</strong> ${data.respuesta.replace(/\\n/g, '<br>')}</div>`;
+                chatBox.innerHTML += `<div><strong class="text-emerald-400">IA:</strong> ${data.respuesta.replace(/\\n/g, '<br>')}</div>`;
                 chatBox.scrollTop = chatBox.scrollHeight;
             } catch (err) {
-                chatBox.innerHTML += `<div style="margin-bottom: 0.75rem; color: #f87171;"><strong>Error:</strong> No se pudo conectar con el servidor.</div>`;
+                chatBox.innerHTML += `<div class="text-red-400"><strong>Error:</strong> Conexión fallida.</div>`;
             }
         }
     </script>
