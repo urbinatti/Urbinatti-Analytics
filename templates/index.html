@@ -85,14 +85,16 @@
                 </div>
             </div>
 
-            <!-- Banner interactivo de API Key (visible solo si falta) -->
+            <!-- Banner de configuración de API Key con botones directos -->
             <div id="api-key-banner" class="bg-[#020617] border border-red-500/30 rounded-2xl p-4 space-y-3 {% if has_key %}hidden{% endif %}">
-                <p class="text-xs text-[#a1a1aa]">Para usar el asistente, generá tu API Key de Gemini y pegala acá:</p>
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="block text-center bg-[#090d16] hover:bg-slate-800 text-emerald-400 font-medium py-2.5 rounded-xl text-xs border border-[#334155] transition-all">
-                    1. Generar API Key ↗
-                </a>
+                <p class="text-xs text-[#a1a1aa]">Para usar la IA, generá tu clave y pegala acá:</p>
                 <div class="flex gap-2">
-                    <input type="text" id="inline-api-key" placeholder="Pegá tu key acá (AIzaSy...)" class="flex-1 bg-[#090d16] border border-[#334155] rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-[#10b981]">
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" class="flex-1 text-center bg-[#090d16] hover:bg-slate-800 text-emerald-400 font-medium py-2 rounded-xl text-xs border border-[#334155] transition-all flex items-center justify-center gap-1">
+                        Generar API Key ↗
+                    </a>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="inline-api-key" placeholder="Pegá tu key acá (AQ... o AIza...)" class="flex-1 bg-[#090d16] border border-[#334155] rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-[#10b981]">
                     <button onclick="guardarKeyInline()" class="bg-[#10b981] hover:bg-[#059669] text-slate-950 font-bold px-4 py-2 rounded-xl text-xs transition-all">Guardar</button>
                 </div>
             </div>
@@ -116,6 +118,14 @@
             carbs: {{ user_data.carbs_objetivo }},
             grasas: {{ user_data.grasas_objetivo }}
         };
+
+        // Soporte estricto para enviar con la tecla Enter
+        document.getElementById('mensaje-input').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                enviarMensaje();
+            }
+        });
 
         function actualizarUI(cons) {
             document.getElementById('cal-cons-text').innerText = Math.round(cons.calorias_cons) + ' kcal';
@@ -178,13 +188,13 @@
                     document.getElementById('lock-text').innerText = "Activo";
                     
                     const chatBox = document.getElementById('chat-box');
-                    chatBox.innerHTML += `<div><strong class="text-emerald-400">Sistema:</strong> API Key guardada y activada correctamente.</div>`;
+                    chatBox.innerHTML += `<div><strong class="text-emerald-400">Sistema:</strong> API Key guardada y activada correctamente. ¡Ya podés mandar mensajes!</div>`;
                     chatBox.scrollTop = chatBox.scrollHeight;
                 } else {
-                    alert('Error al guardar.');
+                    alert('Error al guardar la key.');
                 }
             } catch (err) {
-                alert('Error de conexión.');
+                alert('Error de conexión al guardar.');
             }
         }
 
@@ -220,7 +230,7 @@
                 }
             } catch (err) {
                 document.getElementById(typingId)?.remove();
-                chatBox.innerHTML += `<div class="text-red-400"><strong>Error:</strong> Conexión fallida.</div>`;
+                chatBox.innerHTML += `<div class="text-red-400"><strong>Error:</strong> Conexión fallida con el servidor.</div>`;
             }
         }
     </script>

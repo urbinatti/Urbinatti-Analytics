@@ -109,9 +109,9 @@ def index():
         "carbs_cons": consumo["carbs_cons"]
     }
     
-    db_k = user_data['gemini_api_key']
+    db_k = user_data['gemini_api_key'] if 'gemini_api_key' in user_data.keys() else None
     env_k = os.getenv("GEMINI_API_KEY")
-    has_key = bool((db_k and db_k.strip() and db_k != "None") or (env_k and env_k.strip()))
+    has_key = bool((db_k and str(db_k).strip() and str(db_k) != "None") or (env_k and str(env_k).strip()))
     
     return render_template('index.html', user_data=user_data, consumos=consumos_dict, has_key=has_key)
 
@@ -254,29 +254,28 @@ def chat():
     user = cursor.fetchone()
     conn.close()
     
-    db_key = user['gemini_api_key'] if user and 'gemini_api_key' in user else None
-    api_key = db_key.strip() if db_key and db_key.strip() and db_key != "None" else os.getenv("GEMINI_API_KEY")
+    db_key = user['gemini_api_key'] if user and 'gemini_api_key' in user.keys() else None
+    api_key = str(db_key).strip() if db_key and str(db_key).strip() and str(db_key) != "None" else os.getenv("GEMINI_API_KEY")
     
-    if not api_key or not api_key.strip():
-        return jsonify({'respuesta': '🔒 Falta configurar tu API Key de Gemini. Completala arriba para activar el asistente.'})
-    
-    client = genai.Client(api_key=api_key)
-    
-    prompt = f"""
-    Eres un asistente nutricional crudo, objetivo y sin rodeos. Analiza la siguiente comida del usuario: "{mensaje}".
-    Devuelve estrictamente un JSON válido con este formato exacto (sin texto adicional fuera del JSON):
-    {{
-      "respuesta_ia": "Breve comentario objetivo sobre el plato con su desglose",
-      "calorias": 0.0,
-      "proteinas": 0.0,
-      "grasas": 0.0,
-      "carbohidratos": 0.0
-    }}
-    """
+    if not api_key or not str(api_key).strip():
+        return jsonify({'respuesta': '🔒 Falta configurar tu API Key. Generala en el botón de arriba y pegala en el campo correspondiente.'})
     
     try:
+        client = genai.Client(api_key=api_key)
+        prompt = f"""
+        Eres un asistente nutricional crudo, objetivo y sin rodeos. Analiza la siguiente comida del usuario: "{mensaje}".
+        Devuelve estrictamente un JSON válido con este formato exacto (sin texto adicional fuera del JSON):
+        {{
+          "respuesta_ia": "Breve comentario objetivo sobre el plato con su desglose",
+          "calorias": 0.0,
+          "proteinas": 0.0,
+          "grasas": 0.0,
+          "carbohidratos": 0.0
+        }}
+        """
+        
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.5-flash',
             contents=prompt,
         )
         import json
@@ -315,7 +314,7 @@ def chat():
             }
         })
     except Exception as e:
-        return jsonify({'respuesta': f'Error procesando con Gemini: {str(e)}'})
+        return jsonify({'respuesta': f'Error en la API de Gemini: {str(e)}'})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
