@@ -4,7 +4,11 @@ from flask import Flask, render_template, request, redirect, url_for, session
 from dotenv import load_dotenv
 from google import genai
 from datetime import timedelta
-load_dotenv()
+
+# Forzar ruta absoluta del .env
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+load_dotenv(os.path.join(BASE_DIR, '.env'))
+
 from database import (
     init_db, 
     obtener_usuario_por_email, 
@@ -19,7 +23,7 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1000)
 
 app.secret_key = os.getenv("SECRET_KEY")
 if not app.secret_key:
-    raise RuntimeError("Falta configurar la SECRET_KEY en el archivo .env")
+    raise RuntimeError(f"Falta configurar la SECRET_KEY en el archivo .env (Buscado en: {os.path.join(BASE_DIR, '.env')})")
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -220,13 +224,11 @@ def chat_ia():
     email = session['usuario']
     usuario = obtener_usuario_por_email(email)
     
-    # Variable en minúsculas
     api_key_cifrada = usuario.get('gemini_api_key')
     
     if not api_key_cifrada or api_key_cifrada.startswith('fit_live_'):
         return {"respuesta": "No tenés configurada tu API key personal de Gemini. Cargala en tu configuración para poder usar el chat."}
     
-    # Variable en minúsculas coincidiendo con la función
     api_key_real = descifrar_key(api_key_cifrada)
     
     if not api_key_real:
@@ -256,3 +258,6 @@ def chat_ia():
     except Exception as e:
         print(f"Error en chat IA: {e}")
         return {"respuesta": f"Error al procesar con la IA: {str(e)}"}
+
+if __name__ == '__main__':
+    app.run(debug=True)
