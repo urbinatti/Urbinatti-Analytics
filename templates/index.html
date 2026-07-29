@@ -3,257 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Principal - FitTrack</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-   
+    <title>Dashboard - Urbinatti Analytics</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
-<link rel="stylesheet" href="/static/style.css">
-<body class="bg-slate-950 text-slate-100 min-h-screen p-4 md:p-6">
+<body style="display: block;">
 
-    <div class="max-w-7xl mx-auto space-y-6">
-        
-        <!-- Cabecera -->
-        <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+    <div class="dashboard-container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
             <div>
-                <h1 class="text-2xl font-bold text-white">Panel de Control</h1>
-                <p class="text-slate-400 text-sm">Hola, {{ session.get('nombre', 'Usuario') }}.</p>
+                <h1 style="font-size: 1.875rem; font-weight: 700; color: #ffffff;">Panel de Control</h1>
+                <p style="color: #94a3b8; font-size: 0.875rem;">Usuario: {{ user_data.nombre }}</p>
             </div>
-            <div class="flex items-center gap-3 mt-3 sm:mt-0">
-                <a href="{{ url_for('configuracion') }}" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-xl font-medium transition text-sm">
-                    Ajustes
-                </a>
-                <a href="{{ url_for('logout') }}" class="px-4 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 rounded-xl font-medium transition text-sm">
-                    Cerrar Sesión
-                </a>
-            </div>
-        </header>
-
-        <!-- Tarjetas de Métricas -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            
-            <!-- CALORÍAS OBJETIVO -->
-            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Calorías Objetivo (Diarias)</h3>
-                <p class="text-5xl font-extrabold text-indigo-400">{{ user_data.get('calorias_objetivo', '0') | int }} <span class="text-lg font-normal text-slate-400">kcal</span></p>
-                
-                {% set objetivo_raw = user_data.get('objetivo', '') %}
-                <p class="text-sm text-emerald-400 mt-2 font-medium">Meta: 
-                    {% if objetivo_raw == 'perdida_agresiva' %} Pérdida Agresiva
-                    {% elif objetivo_raw == 'perdida_controlada' %} Pérdida Controlada
-                    {% elif objetivo_raw == 'mantenimiento' %} Mantenimiento
-                    {% elif objetivo_raw == 'volumen_limpio' %} Volumen Limpio
-                    {% elif objetivo_raw == 'volumen_fuerte' %} Volumen Fuerte
-                    {% else %} Configurar Meta
-                    {% endif %}
-                </p>
-            </div>
-
-            <!-- GASTO MANTENIMIENTO (TDEE) -->
-            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Gasto Mantenimiento (TDEE)</h3>
-                {% set peso = user_data.get('peso_kg', 70) | float %}
-                {% set altura = user_data.get('altura_cm', 175) | int %}
-                {% set edad = user_data.get('edad', 20) | int %}
-                {% set sexo = user_data.get('sexo', 'M') %}
-                {% set dias = user_data.get('dias_entreno', 4) | int %}
-                {% set act = 1.55 if dias >= 4 else 1.375 %}
-                {% set tmb = (10 * peso) + (6.25 * altura) - (5 * edad) + (5 if sexo == 'M' else -161) %}
-                <p class="text-3xl font-extrabold text-slate-400">{{ (tmb * act) | int }} <span class="text-lg font-normal text-slate-500">kcal</span></p>
-            </div>
-
-            <!-- PESO ACTUAL -->
-            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Peso Actual</h3>
-                <p class="text-3xl font-extrabold text-sky-400">{{ user_data.get('peso_kg', '0') }} <span class="text-lg font-normal text-slate-500">kg</span></p>
-            </div>
-            
-             <!-- PERFIL -->
-            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Perfil</h3>
-                <p class="text-lg font-medium text-white">{{ user_data.get('altura_cm', '0') | int }} cm | Edad: {{ user_data.get('edad', '0') | int }}</p>
-                <p class="text-sm text-slate-300 mt-1">{{ user_data.get('dias_entreno', '0') }} días de entreno</p>
+            <div style="display: flex; gap: 1rem;">
+                <a href="/configuracion" class="btn-primary" style="margin: 0; padding: 0.5rem 1rem; width: auto;">Configuración</a>
+                <a href="/logout" style="background-color: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; font-size: 0.9rem;">Cerrar Sesión</a>
             </div>
         </div>
 
-        <!-- SECCIÓN DE MACROS Y CHAT -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            <!-- Columna del Chat de IA con verificación de API Key -->
-            <div class="lg:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl flex flex-col">
-                <div class="flex items-center gap-3 mb-4">
-                    <div class="p-2 bg-indigo-600/10 rounded-lg">
-                        <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
-                    </div>
-                    <h3 class="text-lg font-bold text-white">Asistente Nutricional IA</h3>
-                </div>
-
-                {% set api_key = user_data.get('gemini_api_key') %}
-                {% if not api_key or api_key.startswith('fit_live_') %}
-                    <!-- ESTADO BLOQUEADO: CANDADITO Y GUÍA DE CONFIGURACIÓN -->
-                    <div class="flex-grow bg-slate-950 rounded-xl p-8 flex flex-col items-center justify-center text-center border border-slate-800 space-y-4 my-auto">
-                        <div class="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shadow-inner">
-                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                            </svg>
-                        </div>
-                        <div>
-                            <h4 class="text-lg font-bold text-white mb-1">Chat Bloqueado (Falta API Key)</h4>
-                            <p class="text-xs text-slate-400 max-w-md mx-auto">Para que el asistente analice tus comidas, necesitás registrar tu clave personal de Gemini de forma gratuita.</p>
-                        </div>
-                        <div class="flex flex-col sm:flex-row gap-3 w-full max-w-md pt-2">
-                            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-indigo-400 border border-slate-700 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 shadow">
-                                <span>1. Generar API Key</span>
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                            </a>
-                            <a href="{{ url_for('configuracion') }}" class="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 shadow">
-                                <span>2. Ir a Ajustes y Pegarla</span>
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                            </a>
-                        </div>
-                    </div>
-                {% else %}
-                    <!-- CHAT ACTIVO -->
-                    <div class="flex-grow bg-slate-950 rounded-xl p-4 h-64 overflow-y-auto space-y-4 mb-4 border border-slate-800 text-sm text-slate-300" id="chat-messages">
-                        <div class="flex items-start gap-3">
-                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">
-                                <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                            </div>
-                            <div class="bg-slate-800 p-3 rounded-b-xl rounded-tr-xl">
-                                ¡Hola! Decime qué comiste hoy y calculo los macros y calorías al instante. (Ej: "Un plato de fideos con tuco")
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex gap-2">
-                        <input type="text" id="chat-input" placeholder="Desayuné dos huevos revueltos..." 
-                               class="flex-grow bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500">
-                        <button id="send-chat-btn" class="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold text-sm shadow transition">Enviar</button>
-                    </div>
-                {% endif %}
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <h3>Peso Actual</h3>
+                <div class="value">{{ user_data.peso_kg }} kg</div>
             </div>
-
-            <!-- MACROS EN GRAMOS CALCULADOS -->
-            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl flex flex-col items-center justify-center">
-                <h3 class="text-lg font-bold mb-2 text-white">Distribución de Macros</h3>
-                <p class="text-xs text-slate-500 mb-6">Basado en tu peso y calorías objetivo</p>
-                
-                {% set peso_val = user_data.get('peso_kg', 70) | float %}
-                {% set cal_val = user_data.get('calorias_objetivo', 2500) | int %}
-                
-                {% set prot_g = (peso_val * 2) | int %}
-                {% set grasas_g = (peso_val * 1) | int %}
-                {% set cal_restantes = cal_val - ((prot_g * 4) + (grasas_g * 9)) %}
-                {% set carbs_g = (cal_restantes / 4) if cal_restantes > 0 else 0 %}
-                {% set carbs_g = carbs_g | int %}
-
-                <div class="relative h-48 w-full">
-                    <canvas id="macroChart"></canvas>
-                </div>
-                
-                <div class="grid grid-cols-3 gap-2 mt-4 text-xs text-center w-full">
-                    <div class="bg-slate-800 p-2.5 rounded-xl">
-                        <span class="block w-2.5 h-2.5 rounded-full bg-indigo-500 mx-auto mb-1"></span>
-                        <span class="font-bold text-indigo-400 text-sm">{{ prot_g }}g</span>
-                        <span class="text-slate-400">Proteínas</span>
-                    </div>
-                    <div class="bg-slate-800 p-2.5 rounded-xl">
-                        <span class="block w-2.5 h-2.5 rounded-full bg-emerald-500 mx-auto mb-1"></span>
-                        <span class="font-bold text-emerald-400 text-sm">{{ carbs_g }}g</span>
-                        <span class="text-slate-400">Carbs</span>
-                    </div>
-                    <div class="bg-slate-800 p-2.5 rounded-xl">
-                        <span class="block w-2.5 h-2.5 rounded-full bg-amber-500 mx-auto mb-1"></span>
-                        <span class="font-bold text-amber-400 text-sm">{{ grasas_g }}g</span>
-                        <span class="text-slate-400">Grasas</span>
-                    </div>
-                </div>
+            <div class="metric-card">
+                <h3>Calorías Objetivo</h3>
+                <div class="value">{{ user_data.calorias_objetivo }} kcal</div>
+            </div>
+            <div class="metric-card">
+                <h3>Objetivo Activo</h3>
+                <div class="value" style="font-size: 1.25rem; margin-top: 0.5rem; text-transform: capitalize;">{{ user_data.objetivo | replace('_', ' ') }}</div>
+            </div>
+            <div class="metric-card">
+                <h3>Días de Entreno</h3>
+                <div class="value">{{ user_data.dias_entreno }} / sem</div>
             </div>
         </div>
 
+        <!-- Consola del Chat IA -->
+        <div style="background-color: #0f172a; border: 1px solid #1e293b; border-radius: 1rem; padding: 1.5rem; margin-top: 2rem;">
+            <h2 style="font-size: 1.25rem; font-weight: 600; color: #ffffff; margin-bottom: 1rem;">Asistente Nutricional AI</h2>
+            <div id="chat-box" style="background-color: #020617; border: 1px solid #334155; border-radius: 0.5rem; height: 250px; overflow-y: auto; padding: 1rem; margin-bottom: 1rem; color: #cbd5e1; font-size: 0.9rem;">
+                <p style="color: #64748b;">Sistema inicializado. Escribí tu consulta o ingesta diaria...</p>
+            </div>
+            <div style="display: flex; gap: 0.75rem;">
+                <input type="text" id="mensaje-input" placeholder="Ej: Comí 200g de milanesa con ensalada..." style="flex: 1; margin: 0;">
+                <button onclick="enviarMensaje()" class="submit-btn" style="margin: 0; width: auto; padding: 0.75rem 1.5rem;">Enviar</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        {% if user_data.get('gemini_api_key') and not user_data.get('gemini_api_key').startswith('fit_live_') %}
-        const chatInput = document.getElementById('chat-input');
-        const sendBtn = document.getElementById('send-chat-btn');
-        const chatMessages = document.getElementById('chat-messages');
-
-        function agregarMensaje(remitente, texto) {
-            const divMensaje = document.createElement('div');
-            divMensaje.className = `flex items-start gap-3 ${remitente === 'ia' ? '' : 'justify-end'}`;
-
-            if (remitente === 'ia') {
-                divMensaje.innerHTML = `
-                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                    </div>
-                    <div class="bg-slate-800 p-3 rounded-b-xl rounded-tr-xl text-sm text-slate-300 max-w-[80%]">
-                        ${texto}
-                    </div>
-                `;
-            } else {
-                divMensaje.innerHTML = `
-                    <div class="bg-indigo-600 p-3 rounded-b-xl rounded-tl-xl text-sm text-white max-w-[80%]">
-                        ${texto}
-                    </div>
-                `;
-            }
-            chatMessages.appendChild(divMensaje);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-
         async function enviarMensaje() {
-            const mensaje = chatInput.value.trim();
+            const input = document.getElementById('mensaje-input');
+            const chatBox = document.getElementById('chat-box');
+            const mensaje = input.value.trim();
             if (!mensaje) return;
 
-            chatInput.value = '';
-            agregarMensaje('usuario', mensaje);
+            chatBox.innerHTML += `<div style="margin-bottom: 0.75rem; text-align: right;"><strong style="color: #818cf8;">Tú:</strong> ${mensaje}</div>`;
+            input.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
 
             try {
-                const response = await fetch('/chat', {
+                const res = await fetch('/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ mensaje: mensaje })
+                    body: JSON.stringify({ mensaje })
                 });
-                
-                if (!response.ok) throw new Error('Error en el servidor');
-                
-                const data = await response.json();
-                agregarMensaje('ia', data.respuesta);
-            } catch (error) {
-                console.error(error);
-                agregarMensaje('ia', 'Error al comunicarse con el asistente. Verificá tu API key en Ajustes.');
+                const data = await res.json();
+                chatBox.innerHTML += `<div style="margin-bottom: 0.75rem;"><strong style="color: #34d399;">IA:</strong> ${data.respuesta.replace(/\\n/g, '<br>')}</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            } catch (err) {
+                chatBox.innerHTML += `<div style="margin-bottom: 0.75rem; color: #f87171;"><strong>Error:</strong> No se pudo conectar con el servidor.</div>`;
             }
         }
-
-        sendBtn.addEventListener('click', enviarMensaje);
-        chatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') enviarMensaje();
-        });
-        {% endif %}
-
-        // Gráfico de Macros
-        const ctxMacro = document.getElementById('macroChart').getContext('2d');
-        new Chart(ctxMacro, {
-            type: 'doughnut',
-            data: {
-                labels: ['Proteínas', 'Carbohidratos', 'Grasas'],
-                datasets: [{
-                    data: [{{ prot_g }}, {{ carbs_g }}, {{ grasas_g }}],
-                    backgroundColor: ['#6366f1', '#10b981', '#f59e0b'],
-                    borderWidth: 0,
-                    hoverOffset: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                cutout: '75%'
-            }
-        });
     </script>
 </body>
 </html>
