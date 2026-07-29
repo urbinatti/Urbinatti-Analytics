@@ -109,9 +109,17 @@ def index():
         "carbs_cons": consumo["carbs_cons"]
     }
     
-    db_k = user_data['gemini_api_key'] if user_data and 'gemini_api_key' in user_data.keys() else None
-    env_k = os.getenv("GEMINI_API_KEY")
-    has_key = bool((db_k and str(db_k).strip() and str(db_k) != "None") or (env_k and str(env_k).strip()))
+    # Lógica blindada para validar existencia de API Key
+    has_key = False
+    if user_data and 'gemini_api_key' in user_data.keys() and user_data['gemini_api_key']:
+        db_k = str(user_data['gemini_api_key']).strip()
+        if db_k not in ["", "None", "null", "undefined"]:
+            has_key = True
+            
+    if not has_key:
+        env_k = os.getenv("GEMINI_API_KEY")
+        if env_k and str(env_k).strip() not in ["", "None", "null", "undefined"]:
+            has_key = True
     
     return render_template('index.html', user_data=user_data, consumos=consumos_dict, has_key=has_key)
 
@@ -248,16 +256,25 @@ def chat():
     
     import sqlite3
     conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row  # <-- ¡ESTO EVITA EL ERROR DE TUPLA!
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM usuarios WHERE email = ?", (email,))
     user = cursor.fetchone()
     conn.close()
     
-    db_key = user['gemini_api_key'] if user and 'gemini_api_key' in user.keys() else None
-    api_key = str(db_key).strip() if db_key and str(db_key).strip() and str(db_key) != "None" else os.getenv("GEMINI_API_KEY")
+    # Extracción y validación 100% blindada de la API Key
+    api_key = None
+    if user and 'gemini_api_key' in user.keys() and user['gemini_api_key']:
+        db_key = str(user['gemini_api_key']).strip()
+        if db_key not in ["", "None", "null", "undefined"]:
+            api_key = db_key
+            
+    if not api_key:
+        env_key = os.getenv("GEMINI_API_KEY")
+        if env_key and str(env_key).strip() not in ["", "None", "null", "undefined"]:
+            api_key = str(env_key).strip()
     
-    if not api_key or not str(api_key).strip():
+    if not api_key:
         return jsonify({'respuesta': '🔒 Falta configurar tu API Key. Generala en el botón de arriba y pegala en el campo correspondiente para chatear.'})
     
     try:
