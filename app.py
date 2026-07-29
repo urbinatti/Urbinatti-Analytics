@@ -1,4 +1,4 @@
-import os
+os = __import__('os')
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from google import genai
@@ -6,6 +6,7 @@ import database
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+app.permanent_session_lifetime = timedelta(days=30)  # Sesión persistente por 30 días
 
 database.init_db()
 
@@ -109,10 +110,14 @@ def index():
 
 @app.route('/login')
 def login():
+    # Si ya hay sesión activa, entra derecho al index
+    if 'user_email' in session:
+        return redirect(url_for('index'))
     return render_template('login.html')
 
 @app.route('/login/google')
 def login_google():
+    session.permanent = True
     email_demo = 'matias@urbinatti.com'
     session['user_email'] = email_demo
     
@@ -122,7 +127,7 @@ def login_google():
     cursor.execute("SELECT email FROM usuarios WHERE email = ?", (email_demo,))
     if not cursor.fetchone():
         cursor.execute("INSERT INTO usuarios (email, nombre, onboarding_completado) VALUES (?, ?, ?)",
-                       (email_demo, 'Joaquín Urbinatti', 0))
+                       (email_demo, 'Matías Urbinatti', 0))
         conn.commit()
         
     cursor.execute("SELECT onboarding_completado FROM usuarios WHERE email = ?", (email_demo,))
@@ -143,6 +148,7 @@ def onboarding():
     if 'user_email' not in session:
         return redirect(url_for('login'))
     
+    session.permanent = True
     if request.method == 'POST':
         peso = float(request.form['peso_kg'])
         altura = int(request.form['altura_cm'])
@@ -184,6 +190,7 @@ def configuracion():
         edad = int(request.form['edad'])
         dias = int(request.form['dias_entreno'])
         objetivo = request.form['objetivo']
+        gemini_key = request.form.get('gemini_api_key', '').strip()
         
         cursor.execute("SELECT sexo FROM usuarios WHERE email = ?", (session['user_email'],))
         row = cursor.fetchone()
@@ -191,11 +198,19 @@ def configuracion():
         
         nutri = calcular_nutricion(peso, altura, edad, sexo, dias, objetivo)
         
-        cursor.execute('''
-            UPDATE usuarios SET peso_kg=?, altura_cm=?, edad=?, dias_entreno=?, objetivo=?,
-            calorias_objetivo=?, proteinas_objetivo=?, grasas_objetivo=?, carbs_objetivo=?
-            WHERE email=?
-        ''', (peso, altura, edad, dias, objetivo, nutri['calorias'], nutri['proteinas'], nutri['grasas'], nutri['carbs'], session['user_email']))
+        if gemini_key:
+            cursor.execute('''
+                UPDATE usuarios SET peso_kg=?, altura_cm=?, edad=?, dias_entreno=?, objetivo=?,
+                calorias_objetivo=?, proteinas_objetivo=?, grasas_objetivo=?, carbs_objetivo=?, gemini_api_key=?
+                WHERE email=?
+            ''', (peso, altura, edad, dias, objetivo, nutri['calorias'], nutri['proteinas'], nutri['grasas'], nutri['carbs'], gemini_key, session['user_email']))
+        else:
+            cursor.execute('''
+                UPDATE usuarios SET peso_kg=?, altura_cm=?, edad=?, dias_entreno=?, objetivo=?,
+                calorias_objetivo=?, proteinas_objetivo=?, grasas_objetivo=?, carbs_objetivo=?
+                WHERE email=?
+            ''', (peso, altura, edad, dias, objetivo, nutri['calorias'], nutri['proteinas'], nutri['grasas'], nutri['carbs'], session['user_email']))
+            
         conn.commit()
         conn.close()
         return redirect(url_for('index'))
@@ -223,7 +238,13 @@ def chat():
     user = cursor.fetchone()
     conn.close()
     
-    api_key = user['gemini_api_key'] or os.getenv("GEMINI_API_KEY")
+    # Obtener API key validada (de la cuenta o del entorno)
+    db_key = user['gemini_api_key'] if user and 'gemini_api_key' in user else None
+    api_key = db_key.strip() if db_key and db_key.strip() else os.getenv("GEMINI_API_KEY")
+    
+    if not api_key:
+        return jsonify({'respuesta': 'Error crítico: No hay API key de Gemini configurada ni en la cuenta ni en el servidor.'}), 500
+    
     client = genai.Client(api_key=api_key)
     
     prompt = f"""
@@ -279,7 +300,7 @@ def chat():
             }
         })
     except Exception as e:
-        return jsonify({'respuesta': f'Error procesando la ingesta: {str(e)}'}), 500
+        return jsonify({'respuesta': f'Error procesando la ingesta con Gemini: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
