@@ -1,12 +1,15 @@
 os = __import__('os')
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from dotenv import load_dotenv
 from google import genai
 import database
 
+load_dotenv()
+
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
-app.permanent_session_lifetime = timedelta(days=30)  # Sesión persistente por 30 días
+app.permanent_session_lifetime = timedelta(days=30)
 
 database.init_db()
 
@@ -106,11 +109,12 @@ def index():
         "carbs_cons": consumo["carbs_cons"]
     }
     
-    return render_template('index.html', user_data=user_data, consumos=consumos_dict)
+    has_key = bool((user_data['gemini_api_key'] and user_data['gemini_api_key'].strip()) or os.getenv("GEMINI_API_KEY"))
+    
+    return render_template('index.html', user_data=user_data, consumos=consumos_dict, has_key=has_key)
 
 @app.route('/login')
 def login():
-    # Si ya hay sesión activa, entra derecho al index
     if 'user_email' in session:
         return redirect(url_for('index'))
     return render_template('login.html')
@@ -238,12 +242,13 @@ def chat():
     user = cursor.fetchone()
     conn.close()
     
-    # Obtener API key validada (de la cuenta o del entorno)
     db_key = user['gemini_api_key'] if user and 'gemini_api_key' in user else None
     api_key = db_key.strip() if db_key and db_key.strip() else os.getenv("GEMINI_API_KEY")
     
     if not api_key:
-        return jsonify({'respuesta': 'Error crítico: No hay API key de Gemini configurada ni en la cuenta ni en el servidor.'}), 500
+        return jsonify({
+            'respuesta': '🔒 Falta configurar tu API Key de Gemini. Tocá el icono del candadito arriba a la derecha para agregarla y empezar a chatear.'
+        })
     
     client = genai.Client(api_key=api_key)
     
@@ -300,7 +305,7 @@ def chat():
             }
         })
     except Exception as e:
-        return jsonify({'respuesta': f'Error procesando la ingesta con Gemini: {str(e)}'}), 500
+        return jsonify({'respuesta': f'Error procesando con Gemini: {str(e)}'})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

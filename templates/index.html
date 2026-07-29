@@ -17,6 +17,15 @@
                 <p class="text-xs text-[#a1a1aa]">Peso: {{ user_data.peso_kg }} kg | {{ user_data.dias_entreno }} días/sem</p>
             </div>
             <div class="flex items-center gap-2">
+                <!-- Candadito de API Key -->
+                <a href="/configuracion" title="{% if has_key %}API Key configurada{% else %}Falta configurar API Key{% endif %}" 
+                   class="p-2.5 bg-[#020617] border {% if has_key %}border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10{% else %}border-red-500/40 text-red-400 hover:bg-red-500/10{% endif %} rounded-xl transition-colors flex items-center justify-center">
+                    {% if has_key %}
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    {% else %}
+                    <svg class="w-5 h-5 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+                    {% endif %}
+                </a>
                 <a href="/configuracion" class="p-2.5 bg-[#020617] border border-[#1e293b] rounded-xl text-[#a1a1aa] hover:text-white transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                 </a>
@@ -45,7 +54,6 @@
         <div class="bg-[#090d16] border border-[#1e293b] rounded-3xl p-6 space-y-4 shadow-xl">
             <h2 class="text-sm font-bold text-white tracking-wider uppercase">Macros</h2>
             <div class="space-y-4">
-                <!-- Proteínas -->
                 <div>
                     <div class="flex justify-between text-xs mb-1 text-[#f4f4f5]">
                         <span>Proteínas</span>
@@ -55,7 +63,6 @@
                         <div id="prot-bar" class="h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
-                <!-- Carbohidratos -->
                 <div>
                     <div class="flex justify-between text-xs mb-1 text-[#f4f4f5]">
                         <span>Carbohidratos</span>
@@ -65,7 +72,6 @@
                         <div id="carb-bar" class="h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
-                <!-- Grasas -->
                 <div>
                     <div class="flex justify-between text-xs mb-1 text-[#f4f4f5]">
                         <span>Grasas</span>
@@ -112,22 +118,20 @@
             const pctCarb = (cons.carbs_cons / objetivos.carbs) * 100;
             const pctFat = (cons.grasas_cons / objetivos.grasas) * 100;
 
-            // Círculo calorías
             const circle = document.getElementById('cal-circle-progress');
             circle.setAttribute('stroke-dasharray', `${Math.min(pctCal, 100)}, 100`);
             circle.style.color = getColorClass(pctCal, cons.calorias_cons);
 
-            // Barras de macros
             setBarProgress('prot-bar', 'prot-text', pctProt, cons.proteinas_cons);
             setBarProgress('carb-bar', 'carb-text', pctCarb, cons.carbs_cons);
             setBarProgress('fat-bar', 'fat-text', pctFat, cons.grasas_cons);
         }
 
         function getColorClass(pct, actual) {
-            if (actual === 0 || pct === 0) return '#334155'; // Gris neutro cuando está vacío
-            if (pct <= 100) return '#10b981'; // Verde óptimo
-            if (pct <= 110) return '#f59e0b'; // Amarillo perdonable
-            return '#ef4444'; // Rojo crítico
+            if (actual === 0 || pct === 0) return '#334155';
+            if (pct <= 100) return '#10b981';
+            if (pct <= 110) return '#f59e0b';
+            return '#ef4444';
         }
 
         function setBarProgress(barId, textId, pct, actual) {
@@ -138,7 +142,6 @@
             document.getElementById(textId).style.color = actual === 0 ? '#a1a1aa' : color;
         }
 
-        // Inicializar al cargar con los valores actuales del servidor
         actualizarUI({
             calorias_cons: {{ consumos.calorias_cons }},
             proteinas_cons: {{ consumos.proteinas_cons }},
@@ -156,6 +159,11 @@
             input.value = '';
             chatBox.scrollTop = chatBox.scrollHeight;
 
+            // Indicador de "Escribiendo..." con animación humana
+            const typingId = 'typing-' + Date.now();
+            chatBox.innerHTML += `<div id="${typingId}" class="text-slate-400 italic flex items-center gap-2 text-xs py-1"><span class="flex h-2 w-2 relative"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span> IA escribiendo...</div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+
             try {
                 const res = await fetch('/chat', {
                     method: 'POST',
@@ -163,6 +171,10 @@
                     body: JSON.stringify({ mensaje })
                 });
                 const data = await res.json();
+                
+                // Remover indicador de escritura
+                document.getElementById(typingId)?.remove();
+
                 chatBox.innerHTML += `<div><strong class="text-emerald-400">IA:</strong> ${data.respuesta.replace(/\\n/g, '<br>')}</div>`;
                 chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -170,6 +182,7 @@
                     actualizarUI(data.consumos);
                 }
             } catch (err) {
+                document.getElementById(typingId)?.remove();
                 chatBox.innerHTML += `<div class="text-red-400"><strong>Error:</strong> Conexión fallida.</div>`;
             }
         }
