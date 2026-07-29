@@ -4,9 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Urbinatti Analytics</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>body { font-family: 'Inter', sans-serif; }</style>
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <link href="[https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap](https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap)" rel="stylesheet">
+    <!-- Librería para procesar Markdown de la IA -->
+    <script src="[https://cdn.jsdelivr.net/npm/marked/marked.min.js](https://cdn.jsdelivr.net/npm/marked/marked.min.js)"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* Estilos prolijos para las tablas Markdown dentro del chat */
+        .chat-content table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 0.75rem 0; 
+            font-size: 0.8rem;
+            background-color: #0f172a;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        .chat-content th, .chat-content td { 
+            padding: 0.5rem; 
+            text-align: left; 
+            border-bottom: 1px solid #1e293b;
+        }
+        .chat-content th { 
+            color: #10b981; 
+            font-weight: 600; 
+            background-color: #020617;
+            border-bottom: 2px solid #1e293b;
+        }
+        .chat-content tr:last-child td { border-bottom: none; }
+        .chat-content p { margin-bottom: 0.5rem; }
+        .chat-content strong { color: #f4f4f5; font-weight: 600; }
+        .chat-content ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 0.5rem; }
+    </style>
 </head>
 <body class="bg-[#020617] text-[#f4f4f5] min-h-screen p-4 sm:p-6 pb-24">
     <div class="max-w-md mx-auto space-y-6">
@@ -76,8 +106,8 @@
         </div>
 
         <!-- Asistente IA -->
-        <div class="bg-[#090d16] border border-[#1e293b] rounded-3xl p-6 space-y-4 shadow-xl">
-            <div class="flex justify-between items-center">
+        <div class="bg-[#090d16] border border-[#1e293b] rounded-3xl p-6 space-y-4 shadow-xl flex flex-col h-[60vh] sm:h-auto">
+            <div class="flex justify-between items-center mb-2">
                 <h2 class="text-sm font-bold text-white tracking-wider uppercase">Asistente Nutricional</h2>
                 <div id="chat-lock-indicator" class="flex items-center gap-1.5 text-xs px-3 py-1 rounded-full {% if has_key %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/30{% else %}bg-red-500/10 text-red-400 border border-red-500/30{% endif %}">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{% if has_key %}M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z{% else %}M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z{% endif %}"/></svg>
@@ -89,7 +119,7 @@
             <div id="api-key-banner" class="bg-[#020617] border border-red-500/30 rounded-2xl p-4 space-y-3 {% if has_key %}hidden{% endif %}">
                 <p class="text-xs text-[#a1a1aa]">Para usar la IA, generá tu clave y pegala acá:</p>
                 <div class="flex gap-2">
-                    <a href="https://aistudio.google.com/app/apikey" target="_blank" class="flex-1 text-center bg-[#090d16] hover:bg-slate-800 text-emerald-400 font-medium py-2 rounded-xl text-xs border border-[#334155] transition-all flex items-center justify-center gap-1">
+                    <a href="[https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)" target="_blank" class="flex-1 text-center bg-[#090d16] hover:bg-slate-800 text-emerald-400 font-medium py-2 rounded-xl text-xs border border-[#334155] transition-all flex items-center justify-center gap-1">
                         Generar API Key ↗
                     </a>
                 </div>
@@ -99,10 +129,12 @@
                 </div>
             </div>
 
-            <div id="chat-box" class="bg-[#020617] border border-[#1e293b] rounded-2xl h-48 overflow-y-auto p-4 space-y-3 text-sm text-[#f4f4f5]">
-                <p class="text-[#a1a1aa] italic">Sistema listo. Escribí tu ingesta del día...</p>
+            <!-- Caja de Chat -->
+            <div id="chat-box" class="flex-1 bg-[#020617] border border-[#1e293b] rounded-2xl overflow-y-auto p-4 space-y-4 text-sm text-[#f4f4f5] min-h-[250px]">
+                <p class="text-[#a1a1aa] italic text-center text-xs mt-2">Sistema listo. Podés saludarme, consultar tus macros o cargar una ingesta...</p>
             </div>
-            <div class="flex gap-2">
+            
+            <div class="flex gap-2 mt-4 pt-2">
                 <input type="text" id="mensaje-input" placeholder="Ej: Comí 200g de milanesa..." class="flex-1 bg-[#020617] border border-[#334155] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#10b981]">
                 <button onclick="enviarMensaje()" class="bg-[#10b981] hover:bg-[#059669] text-slate-950 font-bold px-5 py-3 rounded-xl transition-all">
                     Enviar
@@ -204,12 +236,13 @@
             const mensaje = input.value.trim();
             if (!mensaje) return;
 
-            chatBox.innerHTML += `<div class="text-right"><strong class="text-[#10b981]">Tú:</strong> ${mensaje}</div>`;
+            // Renderizamos el mensaje del usuario
+            chatBox.innerHTML += `<div class="text-right mb-2"><span class="bg-[#1e293b] text-[#f4f4f5] px-3 py-2 rounded-xl inline-block max-w-[85%] text-left">${mensaje}</span></div>`;
             input.value = '';
             chatBox.scrollTop = chatBox.scrollHeight;
 
             const typingId = 'typing-' + Date.now();
-            chatBox.innerHTML += `<div id="${typingId}" class="text-slate-400 italic flex items-center gap-2 text-xs py-1"><span class="flex h-2 w-2 relative"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span> IA escribiendo...</div>`;
+            chatBox.innerHTML += `<div id="${typingId}" class="text-slate-400 italic flex items-center gap-2 text-xs py-1"><span class="flex h-2 w-2 relative"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span> Analizando datos...</div>`;
             chatBox.scrollTop = chatBox.scrollHeight;
 
             try {
@@ -222,7 +255,9 @@
                 
                 document.getElementById(typingId)?.remove();
 
-                chatBox.innerHTML += `<div><strong class="text-emerald-400">IA:</strong> ${data.respuesta.replace(/\\n/g, '<br>')}</div>`;
+                // Usar Marked.js para renderizar la respuesta de la IA (soporta tablas, listas, negritas, etc)
+                const markdownProcesado = marked.parse(data.respuesta);
+                chatBox.innerHTML += `<div class="mb-4"><strong class="text-emerald-400 mb-1 block">IA:</strong> <div class="chat-content text-[#cbd5e1] leading-relaxed">${markdownProcesado}</div></div>`;
                 chatBox.scrollTop = chatBox.scrollHeight;
 
                 if (data.consumos) {

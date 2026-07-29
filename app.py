@@ -255,10 +255,24 @@ def chat():
     
     import sqlite3
     conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row 
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+    
+    # 1. Obtenemos datos del usuario
     cursor.execute("SELECT * FROM usuarios WHERE email = ?", (email,))
     user = cursor.fetchone()
+    
+    # 2. Obtenemos el consumo ACTUAL antes de hablar con la IA para inyectar contexto
+    cursor.execute('''
+        SELECT 
+            COALESCE(SUM(calorias), 0) as calorias_cons,
+            COALESCE(SUM(proteinas), 0) as proteinas_cons,
+            COALESCE(SUM(grasas), 0) as grasas_cons,
+            COALESCE(SUM(carbohidratos), 0) as carbs_cons
+        FROM registros_comidas 
+        WHERE usuario_email = ? AND timestamp >= ? AND timestamp < ?
+    ''', (email, start_time, end_time))
+    consumo_actual = cursor.fetchone()
     conn.close()
     
     api_key = None
@@ -277,15 +291,40 @@ def chat():
     
     try:
         client = genai.Client(api_key=api_key)
+        
+        # EL SÚPER-PROMPT INTELIGENTE
         prompt = f"""
-        Eres un asistente nutricional crudo, objetivo y sin rodeos. Analiza la siguiente comida del usuario: "{mensaje}".
-        Devuelve estrictamente un JSON válido con este formato exacto (sin texto adicional fuera del JSON):
+        Eres la IA central de "Urbinatti Analytics", un avanzado asistente nutricional.
+
+        CONTEXTO DEL USUARIO:
+        - Nombre: {user['nombre']}
+        - Peso: {user['peso_kg']} kg
+        - Frecuencia de entreno: {user['dias_entreno']} días/sem.
+        - Objetivo general: {user['objetivo']} (Déficit objetivo: 500 a 1000 kcal si aplica).
+        - Meta Diaria: {user['calorias_objetivo']} kcal (Prot: {user['proteinas_objetivo']}g, Carbs: {user['carbs_objetivo']}g, Grasas: {user['grasas_objetivo']}g)
+        - Consumo HOY (hasta ahora): {consumo_actual['calorias_cons']} kcal (Prot: {consumo_actual['proteinas_cons']}g, Carbs: {consumo_actual['carbs_cons']}g, Grasas: {consumo_actual['grasas_cons']}g)
+
+        REGLAS DE NEGOCIO Y COMPORTAMIENTO:
+        1. Charla vs Registro: Si el usuario solo saluda (ej. "Hola"), te hace una pregunta o pide proyecciones ("What-if"), responde de forma natural, inteligente y conversacional. En este caso, devuelve los valores numéricos (calorías, macros) como 0.0 para no registrar basura en la base de datos.
+        2. Tono: Directo, crudo, objetivo y realista. Eres un experto sin filtro, no proteges sentimientos.
+        3. Si el usuario ingresa una comida: Analiza con desglose fino de macros y calorías.
+        4. Factor Milanesa: Si menciona "milanesa", aplica EXACTAMENTE la regla de 48.5% carne real y 51.5% rebozado/pan. Contempla la absorción de aceite (alta densidad calórica).
+        5. Cortes con hueso: Deduce peso neto vs peso bruto automáticamente.
+        6. Transparencia: Aclara SIEMPRE si sumaste información externa o hiciste una inferencia que el usuario no te dio directamente.
+        7. Formato y Proyección: En tu "respuesta_ia", si es una comida, usa tablas de Markdown para mostrar el desglose y dile cómo queda su balance diario tras este consumo.
+        8. Ledger de correcciones: Si el usuario te corrige sobre un dato anterior (ej. "no era de pollo, era de carne"), acepta el error de inmediato y recalcula.
+
+        MENSAJE DEL USUARIO: "{mensaje}"
+
+        SALIDA ESTRICTAMENTE REQUERIDA:
+        Devuelve ÚNICA Y EXCLUSIVAMENTE un JSON válido (sin texto extra fuera de él, sin comillas triples como ```json).
+        El formato exacto debe ser:
         {{
-          "respuesta_ia": "Breve comentario objetivo sobre el plato con su desglose",
-          "calorias": 0.0,
-          "proteinas": 0.0,
-          "grasas": 0.0,
-          "carbohidratos": 0.0
+          "respuesta_ia": "Tu respuesta conversacional o el análisis nutricional (puedes usar Markdown para estructurar/tablas).",
+          "calorias": <float, 0.0 si es charla o pregunta>,
+          "proteinas": <float, 0.0 si es charla>,
+          "grasas": <float, 0.0 si es charla>,
+          "carbohidratos": <float, 0.0 si es charla>
         }}
         """
         
@@ -297,31 +336,35 @@ def chat():
         texto_limpio = response.text.strip().replace('```json', '').replace('```', '')
         parsed = json.loads(texto_limpio)
         
-        timestamp_actual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
-        # ACA ESTABA EL ERROR: FALTABA EL ROW_FACTORY PARA LA SEGUNDA CONEXIÓN
-        conn2 = sqlite3.connect('database.db')
-        conn2.row_factory = sqlite3.Row  # SOLUCIONADO
-        cursor2 = conn2.cursor()
-        
-        cursor2.execute('''
-            INSERT INTO registros_comidas (descripcion, peso, calorias, proteinas, carbohidratos, grasas, timestamp, usuario_email) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (mensaje, 0.0, parsed['calorias'], parsed['proteinas'], parsed['carbohidratos'], parsed['grasas'], timestamp_actual, email))
-        conn2.commit()
-        
-        cursor2.execute('''
-            SELECT 
-                COALESCE(SUM(calorias), 0) as calorias_cons,
-                COALESCE(SUM(proteinas), 0) as proteinas_cons,
-                COALESCE(SUM(grasas), 0) as grasas_cons,
-                COALESCE(SUM(carbohidratos), 0) as carbs_cons
-            FROM registros_comidas 
-            WHERE usuario_email = ? AND timestamp >= ? AND timestamp < ?
-        ''', (email, start_time, end_time))
-        updated_consumo = cursor2.fetchone()
-        conn2.close()
-        
+        # Validar si es una charla (valores 0) o un registro real de comida
+        if parsed.get('calorias', 0) > 0 or parsed.get('proteinas', 0) > 0 or parsed.get('carbohidratos', 0) > 0 or parsed.get('grasas', 0) > 0:
+            timestamp_actual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            conn2 = sqlite3.connect('database.db')
+            conn2.row_factory = sqlite3.Row
+            cursor2 = conn2.cursor()
+            
+            cursor2.execute('''
+                INSERT INTO registros_comidas (descripcion, peso, calorias, proteinas, carbohidratos, grasas, timestamp, usuario_email) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (mensaje, 0.0, parsed['calorias'], parsed['proteinas'], parsed['carbohidratos'], parsed['grasas'], timestamp_actual, email))
+            conn2.commit()
+            
+            # Refrescar los consumos post-insert
+            cursor2.execute('''
+                SELECT 
+                    COALESCE(SUM(calorias), 0) as calorias_cons,
+                    COALESCE(SUM(proteinas), 0) as proteinas_cons,
+                    COALESCE(SUM(grasas), 0) as grasas_cons,
+                    COALESCE(SUM(carbohidratos), 0) as carbs_cons
+                FROM registros_comidas 
+                WHERE usuario_email = ? AND timestamp >= ? AND timestamp < ?
+            ''', (email, start_time, end_time))
+            updated_consumo = cursor2.fetchone()
+            conn2.close()
+        else:
+            # Si no hubo comida (charla), los consumos se mantienen igual
+            updated_consumo = consumo_actual
+            
         return jsonify({
             'respuesta': parsed['respuesta_ia'],
             'consumos': {
@@ -332,7 +375,7 @@ def chat():
             }
         })
     except Exception as e:
-        return jsonify({'respuesta': f'Error en el servidor procesando los macros: {str(e)}'})
+        return jsonify({'respuesta': f'Error en el servidor procesando tu solicitud: {str(e)}'})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
