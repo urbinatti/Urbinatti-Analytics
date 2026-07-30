@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 from google import genai
 import database
 from authlib.integrations.flask_client import OAuth
+import json
+import sqlite3
 
 load_dotenv()
 
@@ -290,6 +292,36 @@ def guardar_key():
     conn.commit()
     conn.close()
     return jsonify({'success': True})
+
+# --- RUTA PARA GUARDAR SUSCRIPCIÓN PUSH ---
+@app.route('/api/guardar_suscripcion', methods=['POST'])
+def guardar_suscripcion():
+    # Verificamos que el usuario esté logueado
+    if 'user' not in session:
+        return jsonify({"error": "Usuario no autorizado"}), 401
+    
+    # Obtenemos el email de la sesión actual de Google
+    email_usuario = session['user'].get('email')
+    
+    # Agarramos los datos del permiso que manda el celular
+    datos_suscripcion = request.get_json()
+    suscripcion_str = json.dumps(datos_suscripcion)
+
+    try:
+        conn = sqlite3.connect('database.db')
+        cursor = conn.cursor()
+        
+        # Guardamos el permiso en la base de datos
+        cursor.execute('''
+            INSERT INTO suscripciones_push (email, suscripcion_json) 
+            VALUES (?, ?)
+        ''', (email_usuario, suscripcion_str))
+        
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "Suscripción guardada con éxito"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/chat', methods=['POST'])
 def chat():

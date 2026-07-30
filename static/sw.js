@@ -21,3 +21,19 @@ self.addEventListener('fetch', event => {
         })
     );
 });
+
+self.addEventListener('push', event => {
+    const data = event.data ? event.data.json() : {};
+    
+    const title = data.titulo || 'Urbinatti Analytics';
+    const options = {
+        body: data.mensaje || 'Tienes un nuevo mensaje.',
+        icon: '/static/icon-192.png',
+        badge: '/static/icon-192.png',
+        vibrate: [200, 100, 200]
+    };
+
+    event.waitUntil(
+        self.registration.showNotification(title, options)
+    );
+});
