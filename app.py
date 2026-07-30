@@ -158,9 +158,9 @@ def login():
 
 @app.route('/login/google')
 def login_google():
-    # Esto redirige a la pantalla oficial de Google
     redirect_uri = url_for('auth', _external=True)
-    return google.authorize_redirect(redirect_uri)
+    # Le mandamos "select_account" y le sumamos "consent" para que Google no tenga margen de evadir la pantalla
+    return google.authorize_redirect(redirect_uri, prompt='select_account consent')
 
 @app.route('/auth')
 def auth():
@@ -198,8 +198,11 @@ def auth():
 
 @app.route('/logout')
 def logout():
-    session.clear()
-    return redirect(url_for('login'))
+    session.clear() # Vacía el diccionario en el servidor
+    respuesta = redirect(url_for('login'))
+    # Literalmente le ordenamos al navegador que ponga la fecha de expiración de la cookie en 0 (la destruye)
+    respuesta.set_cookie('session', '', expires=0) 
+    return respuesta
 
 @app.route('/onboarding', methods=['GET', 'POST'])
 def onboarding():
