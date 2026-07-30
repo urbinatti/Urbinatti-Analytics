@@ -176,9 +176,7 @@
                 enviarMensaje();
             }
         });
-
-        <script>
-const VAPID_PUBLIC_KEY = 'BNcjNEp7cG-LntkwcCjey2tw5VHNCR-T_q0ausnYdAHXOadJM7d3ME6dTXMb9PpOcp8zPDxKWlpMra79wVwmTHM';
+        const VAPID_PUBLIC_KEY = 'BNcjNEp7cG-LntkwcCjey2tw5VHNCR-T_q0ausnYdAHXOadJM7d3ME6dTXMb9PpOcp8zPDxKWlpMra79wVwmTHM';
 
 function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -263,7 +261,6 @@ document.addEventListener("DOMContentLoaded", () => {
         btnConfiguracion.addEventListener('click', suscribirNotificaciones);
     }
 });
-</script>
 
         function actualizarUI(cons) {
             document.getElementById('cal-cons-text').innerText = Math.round(cons.calorias_cons) + ' kcal';
