@@ -1,4 +1,4 @@
-os = __import__('os')
+import os
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from dotenv import load_dotenv
@@ -13,6 +13,7 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "clave_fija_super_segura_urbinati_2026")
 app.permanent_session_lifetime = timedelta(days=30)
+
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
@@ -25,15 +26,6 @@ google = oauth.register(
 )
 
 database.init_db()
-
-oauth = OAuth(app)
-oauth.register(
-    name='google',
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={
-        'scope': 'openid email profile'
-    }
-)
 
 def get_effective_date_window():
     now = datetime.now()
@@ -100,7 +92,6 @@ def index():
     email = session['user_email']
     start_time, end_time = get_effective_date_window()
     
-    import sqlite3
     conn = sqlite3.connect('database.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -161,12 +152,10 @@ def login():
 @app.route('/login/google')
 def login_google():
     redirect_uri = url_for('auth', _external=True)
-    # Le mandamos "select_account" y le sumamos "consent" para que Google no tenga margen de evadir la pantalla
     return google.authorize_redirect(redirect_uri, prompt='select_account consent')
 
 @app.route('/auth')
 def auth():
-    # Google nos devuelve acá con el token real
     token = google.authorize_access_token()
     user_info = token.get('userinfo')
     
@@ -176,16 +165,13 @@ def auth():
     session.permanent = True
     session['user_email'] = email_real
     
-    import sqlite3
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     
-    # Verificamos si el usuario real existe en nuestra base
     cursor.execute("SELECT email, onboarding_completado FROM usuarios WHERE email = ?", (email_real,))
     row = cursor.fetchone()
     
     if not row:
-        # Es un usuario nuevo, lo registramos
         cursor.execute("INSERT INTO usuarios (email, nombre, onboarding_completado) VALUES (?, ?, 0)",
                        (email_real, nombre_real))
         conn.commit()
@@ -200,9 +186,8 @@ def auth():
 
 @app.route('/logout')
 def logout():
-    session.clear() # Vacía el diccionario en el servidor
+    session.clear() 
     respuesta = redirect(url_for('login'))
-    # Literalmente le ordenamos al navegador que ponga la fecha de expiración de la cookie en 0 (la destruye)
     respuesta.set_cookie('session', '', expires=0) 
     return respuesta
 
@@ -222,7 +207,6 @@ def onboarding():
         
         nutri = calcular_nutricion(peso, altura, edad, sexo, dias, objetivo)
         
-        import sqlite3
         conn = sqlite3.connect('database.db')
         cursor = conn.cursor()
         cursor.execute('''
@@ -242,7 +226,6 @@ def configuracion():
     if 'user_email' not in session:
         return redirect(url_for('login'))
     
-    import sqlite3
     conn = sqlite3.connect('database.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -285,7 +268,6 @@ def guardar_key():
     if not key:
         return jsonify({'success': False, 'error': 'Key vacía'})
     
-    import sqlite3
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute("UPDATE usuarios SET gemini_api_key = ? WHERE email = ?", (key, session['user_email']))
@@ -293,17 +275,12 @@ def guardar_key():
     conn.close()
     return jsonify({'success': True})
 
-# --- RUTA PARA GUARDAR SUSCRIPCIÓN PUSH ---
 @app.route('/api/guardar_suscripcion', methods=['POST'])
 def guardar_suscripcion():
-    # Verificamos que el usuario esté logueado
-    if 'user' not in session:
+    if 'user_email' not in session:
         return jsonify({"error": "Usuario no autorizado"}), 401
     
-    # Obtenemos el email de la sesión actual de Google
-    email_usuario = session['user'].get('email')
-    
-    # Agarramos los datos del permiso que manda el celular
+    email_usuario = session['user_email']
     datos_suscripcion = request.get_json()
     suscripcion_str = json.dumps(datos_suscripcion)
 
@@ -311,7 +288,6 @@ def guardar_suscripcion():
         conn = sqlite3.connect('database.db')
         cursor = conn.cursor()
         
-        # Guardamos el permiso en la base de datos
         cursor.execute('''
             INSERT INTO suscripciones_push (email, suscripcion_json) 
             VALUES (?, ?)
@@ -334,7 +310,6 @@ def chat():
     start_time, end_time = get_effective_date_window()
     timestamp_actual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
-    import sqlite3
     conn = sqlite3.connect('database.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -373,7 +348,6 @@ def chat():
         conn2.row_factory = sqlite3.Row
         cursor2 = conn2.cursor()
         
-        # 1. Guardar mensaje del usuario
         cursor2.execute('''
             INSERT INTO historial_chat (usuario_email, rol, mensaje, timestamp) 
             VALUES (?, ?, ?, ?)
@@ -382,7 +356,6 @@ def chat():
 
         client = genai.Client(api_key=api_key)
         
-        # Prompt mejorado con la instrucción de "deshacer"
         prompt = f"""
         Eres la IA central de "Urbinatti Analytics", un avanzado asistente nutricional.
 
@@ -421,11 +394,9 @@ def chat():
             model='gemini-3.1-flash-lite',
             contents=prompt,
         )
-        import json
         texto_limpio = response.text.strip().replace('```json', '').replace('```', '')
         parsed = json.loads(texto_limpio)
         
-        # 2. Guardar respuesta de la IA
         cursor2.execute('''
             INSERT INTO historial_chat (usuario_email, rol, mensaje, timestamp) 
             VALUES (?, ?, ?, ?)
@@ -435,7 +406,6 @@ def chat():
         accion_ia = parsed.get('accion', 'charla')
 
         if accion_ia == 'deshacer':
-            # Borrar el ÚLTIMO registro del día actual de este usuario
             cursor2.execute('''
                 DELETE FROM registros_comidas 
                 WHERE id = (
@@ -447,14 +417,12 @@ def chat():
             conn2.commit()
             
         elif accion_ia == 'registrar' and (parsed.get('calorias', 0) > 0 or parsed.get('proteinas', 0) > 0 or parsed.get('carbohidratos', 0) > 0 or parsed.get('grasas', 0) > 0):
-            # Insertar nueva comida
             cursor2.execute('''
                 INSERT INTO registros_comidas (descripcion, peso, calorias, proteinas, carbohidratos, grasas, timestamp, usuario_email) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (mensaje, 0.0, parsed['calorias'], parsed['proteinas'], parsed['carbohidratos'], parsed['grasas'], timestamp_actual, email))
             conn2.commit()
             
-        # Recalcular consumos SIEMPRE al final (ya sea que borró, agregó o no hizo nada)
         cursor2.execute('''
             SELECT 
                 COALESCE(SUM(calorias), 0) as calorias_cons,

@@ -97,23 +97,7 @@
                     <span id="lock-text">{% if has_key %}Activo{% else %}API Key Requerida{% endif %}</span>
                 </div>
             </div>
-<!-- Modal Emergente de Notificaciones -->
-<div id="modal-notificaciones" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2, 6, 23, 0.85); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(3px);">
-    <div style="background: #1e293b; padding: 25px; border-radius: 12px; max-width: 90%; width: 400px; text-align: center; border: 1px solid #10b981; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-        <h3 style="color: #f4f4f5; margin-top: 0; font-family: sans-serif;">¡No pierdas el ritmo! 🚀</h3>
-        <p style="color: #94a3b8; font-size: 15px; line-height: 1.5; font-family: sans-serif;">
-            Para ayudarte a mantener la constancia con tu déficit y registrar tus comidas, me gustaría enviarte 3 recordatorios diarios (mañana, tarde y noche). ¿Me das permiso para notificarte?
-        </p>
-        <div style="margin-top: 25px; display: flex; gap: 15px; justify-content: center;">
-            <button id="btn-rechazar-modal" style="background: transparent; color: #94a3b8; border: 1px solid #94a3b8; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold;">
-                Quizás después
-            </button>
-            <button id="btn-aceptar-modal" style="background: #10b981; color: #020617; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer;">
-                Sí, activar
-            </button>
-        </div>
-    </div>
-</div>
+
             {% if not has_key %}
             <div id="api-key-banner" class="bg-[#020617] border border-red-500/30 rounded-2xl p-4 space-y-3">
                 <p class="text-xs text-[#a1a1aa]">Para usar la IA, generá tu clave y pegala acá:</p>
@@ -129,7 +113,7 @@
             </div>
             {% endif %}
 
-            <!-- Caja de Chat con renderizado de historial -->
+            <!-- Caja de Chat -->
             <div id="chat-box" class="bg-[#020617] border border-[#1e293b] rounded-2xl h-64 overflow-y-auto p-4 space-y-4 text-sm text-[#f4f4f5]">
                 {% if not chat_history %}
                     <p class="text-[#a1a1aa] italic text-center text-xs mt-2">Sistema listo. Podés saludarme, consultar tus macros o cargar una ingesta...</p>
@@ -153,8 +137,26 @@
         </div>
     </div>
 
+    <!-- Modal Emergente de Notificaciones -->
+    <div id="modal-notificaciones" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2, 6, 23, 0.85); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(3px);">
+        <div style="background: #1e293b; padding: 25px; border-radius: 12px; max-width: 90%; width: 400px; text-align: center; border: 1px solid #10b981; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+            <h3 style="color: #f4f4f5; margin-top: 0; font-family: sans-serif;">¡No pierdas el ritmo! 🚀</h3>
+            <p style="color: #94a3b8; font-size: 15px; line-height: 1.5; font-family: sans-serif; margin-top: 10px;">
+                Para ayudarte a mantener la constancia con tu déficit y registrar tus comidas, me gustaría enviarte 3 recordatorios diarios (mañana, tarde y noche). ¿Me das permiso para notificarte?
+            </p>
+            <div style="margin-top: 25px; display: flex; gap: 15px; justify-content: center;">
+                <button id="btn-rechazar-modal" style="background: transparent; color: #94a3b8; border: 1px solid #94a3b8; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                    Quizás después
+                </button>
+                <button id="btn-aceptar-modal" style="background: #10b981; color: #020617; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                    Sí, activar
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // Parsear el Markdown del historial al cargar la página
+        // Parsear el Markdown del historial
         document.addEventListener("DOMContentLoaded", () => {
             document.querySelectorAll('.ia-msg-history').forEach(el => {
                 el.innerHTML = marked.parse(el.textContent);
@@ -176,92 +178,88 @@
                 enviarMensaje();
             }
         });
+
+        // ==========================================
+        // LÓGICA DE NOTIFICACIONES PUSH Y MODAL
+        // ==========================================
         const VAPID_PUBLIC_KEY = 'BNcjNEp7cG-LntkwcCjey2tw5VHNCR-T_q0ausnYdAHXOadJM7d3ME6dTXMb9PpOcp8zPDxKWlpMra79wVwmTHM';
 
-function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
-}
-
-// Función principal para pedir permiso y enviar a la base de datos
-async function suscribirNotificaciones() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        alert('Tu navegador no soporta notificaciones Push.');
-        return;
-    }
-    try {
-        const registration = await navigator.serviceWorker.ready;
-        const permission = await Notification.requestPermission();
-        
-        if (permission !== 'granted') {
-            console.log('Permiso denegado por el usuario.');
-            return; // Cortamos acá, no se puede hacer nada
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
         }
 
-        const subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-        });
+        async function suscribirNotificaciones() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                alert('Tu navegador no soporta notificaciones Push.');
+                return;
+            }
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                const permission = await Notification.requestPermission();
+                
+                if (permission !== 'granted') {
+                    console.log('Permiso denegado por el usuario.');
+                    return; 
+                }
 
-        const response = await fetch('/api/guardar_suscripcion', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(subscription)
-        });
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                });
 
-        if (response.ok) {
-            alert('¡Notificaciones activadas con éxito!');
-        } else {
-            console.error('Error al guardar en el servidor.');
+                const response = await fetch('/api/guardar_suscripcion', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(subscription)
+                });
+
+                if (response.ok) {
+                    alert('¡Notificaciones activadas con éxito!');
+                } else {
+                    console.error('Error al guardar en el servidor.');
+                }
+            } catch (error) {
+                console.error('Error en la suscripción:', error);
+            }
         }
-    } catch (error) {
-        console.error('Error en la suscripción:', error);
-    }
-}
 
-// Lógica de visualización del Modal y Botones
-document.addEventListener("DOMContentLoaded", () => {
-    const modal = document.getElementById('modal-notificaciones');
-    const btnAceptar = document.getElementById('btn-aceptar-modal');
-    const btnRechazar = document.getElementById('btn-rechazar-modal');
-    const btnConfiguracion = document.getElementById('btn-notificaciones'); // El botón manual de tu config
+        document.addEventListener("DOMContentLoaded", () => {
+            const modal = document.getElementById('modal-notificaciones');
+            const btnAceptar = document.getElementById('btn-aceptar-modal');
+            const btnRechazar = document.getElementById('btn-rechazar-modal');
 
-    // Mostrar el modal si el navegador lo soporta, aún no hay permiso y no se le preguntó antes
-    if ('Notification' in window && Notification.permission === 'default' && !localStorage.getItem('modal_notificaciones_visto')) {
-        setTimeout(() => {
-            modal.style.display = 'flex';
-        }, 2000); // Aparece a los 2 segundos
-    }
+            if ('Notification' in window && Notification.permission === 'default' && !localStorage.getItem('modal_notificaciones_visto')) {
+                setTimeout(() => {
+                    modal.style.display = 'flex';
+                }, 2000); 
+            }
 
-    // Acción: Sí, activar (Modal)
-    if (btnAceptar) {
-        btnAceptar.addEventListener('click', () => {
-            modal.style.display = 'none';
-            localStorage.setItem('modal_notificaciones_visto', 'true');
-            suscribirNotificaciones();
+            if (btnAceptar) {
+                btnAceptar.addEventListener('click', () => {
+                    modal.style.display = 'none';
+                    localStorage.setItem('modal_notificaciones_visto', 'true');
+                    suscribirNotificaciones();
+                });
+            }
+
+            if (btnRechazar) {
+                btnRechazar.addEventListener('click', () => {
+                    modal.style.display = 'none';
+                    localStorage.setItem('modal_notificaciones_visto', 'true'); 
+                });
+            }
         });
-    }
 
-    // Acción: Quizás después (Modal)
-    if (btnRechazar) {
-        btnRechazar.addEventListener('click', () => {
-            modal.style.display = 'none';
-            localStorage.setItem('modal_notificaciones_visto', 'true'); 
-        });
-    }
-
-    // Acción: Botón manual en Configuración
-    if (btnConfiguracion) {
-        btnConfiguracion.addEventListener('click', suscribirNotificaciones);
-    }
-});
-
+        // ==========================================
+        // LÓGICA DE UI Y CHAT
+        // ==========================================
         function actualizarUI(cons) {
             document.getElementById('cal-cons-text').innerText = Math.round(cons.calorias_cons) + ' kcal';
             document.getElementById('prot-text').innerText = cons.proteinas_cons.toFixed(1) + 'g / ' + objetivos.proteinas + 'g';

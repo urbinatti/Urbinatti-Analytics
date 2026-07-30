@@ -27,7 +27,7 @@ self.addEventListener('push', event => {
     
     const title = data.titulo || 'Urbinatti Analytics';
     const options = {
-        body: data.mensaje || 'Tienes un nuevo mensaje.',
+        body: data.mensaje || 'Tienes un nuevo recordatorio.',
         icon: '/static/icon-192.png',
         badge: '/static/icon-192.png',
         vibrate: [200, 100, 200]
