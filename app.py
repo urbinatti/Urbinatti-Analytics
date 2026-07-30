@@ -7,12 +7,16 @@ import database
 from authlib.integrations.flask_client import OAuth
 import json
 import sqlite3
+from pywebpush import webpush, WebPushException
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "clave_fija_super_segura_urbinati_2026")
 app.permanent_session_lifetime = timedelta(days=30)
+
+# PEGÁ TU CLAVE PRIVADA ACÁ (Mantenela entre las comillas)
+VAPID_PRIVATE_KEY = "ACA_PEGA_TU_CLAVE_PRIVADA_EXACTA"
 
 oauth = OAuth(app)
 google = oauth.register(
@@ -103,6 +107,10 @@ def index():
         conn.close()
         return redirect(url_for('onboarding'))
     
+    # Actualizar el reloj de inactividad a AHORA
+    cursor.execute("UPDATE usuarios SET ultimo_login = CURRENT_TIMESTAMP WHERE email = ?", (email,))
+    conn.commit()
+
     cursor.execute('''
         SELECT 
             COALESCE(SUM(calorias), 0) as calorias_cons,
@@ -447,6 +455,57 @@ def chat():
         })
     except Exception as e:
         return jsonify({'respuesta': f'Error en el servidor procesando tu solicitud: {str(e)}'})
+
+# =========================================================
+# MOTOR DE NOTIFICACIONES PUSH Y CRON (LÓGICA DE 3 DÍAS)
+# =========================================================
+
+def enviar_notificacion_push(suscripcion_json, titulo, mensaje):
+    try:
+        webpush(
+            subscription_info=json.loads(suscripcion_json),
+            data=json.dumps({"titulo": titulo, "mensaje": mensaje}),
+            vapid_private_key=VAPID_PRIVATE_KEY,
+            vapid_claims={"sub": "mailto:joaquin.urbinatti@gmail.com"}
+        )
+        return True
+    except WebPushException as ex:
+        print("Error WebPush:", repr(ex))
+        return False
+
+def procesar_notificaciones(titulo, mensaje):
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Busca suscripciones de usuarios que entraron a la app hace MENOS de 3 días
+    cursor.execute('''
+        SELECT s.suscripcion_json 
+        FROM suscripciones_push s
+        JOIN usuarios u ON s.email = u.email
+        WHERE julianday('now') - julianday(u.ultimo_login) <= 3
+    ''')
+    suscripciones = cursor.fetchall()
+    
+    enviadas = 0
+    for sub in suscripciones:
+        if enviar_notificacion_push(sub['suscripcion_json'], titulo, mensaje):
+            enviadas += 1
+            
+    conn.close()
+    return jsonify({"status": "Ejecutado con exito", "notificaciones_enviadas": enviadas})
+
+@app.route('/cron/notificar_manana')
+def cron_manana():
+    return procesar_notificaciones("¡Buen día! ☀️", "¿Qué onda el desayuno? Acordate de tomar la creatina.")
+
+@app.route('/cron/notificar_tarde')
+def cron_tarde():
+    return procesar_notificaciones("Mitad del día 🍽️", "¿Qué onda el almuerzo? Entrá a cargar tus macros para no quedarte atrás.")
+
+@app.route('/cron/notificar_noche')
+def cron_noche():
+    return procesar_notificaciones("Cierre de día 🌙", "¿Qué onda la cena? Revisá si cumpliste el déficit antes de ir a dormir.")
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
