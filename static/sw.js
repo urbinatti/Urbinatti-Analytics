@@ -1,14 +1,23 @@
-const CACHE_NAME = 'urbinati-analytics-v1';
+const CACHE_NAME = 'urbinatti-pwa-v1';
+const urlsToCache = [
+    '/',
+    '/login'
+];
 
-self.addEventListener('install', (e) => {
-    self.skipWaiting();
+self.addEventListener('install', event => {
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+        .then(cache => {
+            return cache.addAll(urlsToCache);
+        })
+    );
 });
 
-self.addEventListener('activate', (e) => {
-    e.waitUntil(clients.claim());
-});
-
-self.addEventListener('fetch', (e) => {
-    // Permite que Flask maneje todas las consultas en tiempo real
-    return;
+self.addEventListener('fetch', event => {
+    event.respondWith(
+        caches.match(event.request)
+        .then(response => {
+            return response || fetch(event.request);
+        })
+    );
 });
