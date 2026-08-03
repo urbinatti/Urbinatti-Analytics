@@ -3,6 +3,7 @@
 > Sistema Full-Stack de seguimiento nutricional automatizado con Inteligencia Artificial, notificaciones asíncronas y arquitectura PWA.
 
 Urbinatti Analytics es una aplicación web progresiva (PWA) diseñada para el cálculo y monitoreo preciso de macronutrientes y déficit calórico. En lugar de requerir que el usuario ingrese datos manualmente en formularios extensos, el sistema utiliza procesamiento de lenguaje natural (NLP) a través de la API de Google Gemini para interpretar comandos cotidianos y extraer métricas nutricionales exactas.
+https://urbinatti.pythonanywhere.com/login
 
 ## 🚀 Características Principales
 
